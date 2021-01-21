@@ -1,0 +1,4 @@
+<launch>
+    <arg name="image" value="/ardrone/bottom/image_raw"/>
+    <node name="bottom_image" pkg="image_view" type="image_view" output="screen" args="compressed image:=/ardrone/bottom/image_raw"/>
+</launch>

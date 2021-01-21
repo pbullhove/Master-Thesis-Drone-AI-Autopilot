@@ -1,0 +1,193 @@
+
+###############################################
+Part: 0
+Lowest value loss: 1.029720602471446
+Epoch with lowest value loss: 5
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+# Architecture:
+Hidden layers: 2
+Hidden units: [2, 7]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 1000
+Batch size: 32
+Learning rate: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.05
+###############################################
+Best:
+1.029720602471446
+###############################################
+Part: 0
+Lowest value loss: 1.0064354064028644
+Epoch with lowest value loss: 6
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+# Architecture:
+Hidden layers: 2
+Hidden units: [2, 7]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 1000
+Batch size: 32
+Learning rate: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.05
+###############################################
+Best:
+1.0064354064028644
+###############################################
+Part: 1
+Lowest value loss: 0.9425859441552634
+Epoch with lowest value loss: 116
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+# Architecture:
+Hidden layers: 2
+Hidden units: [4, 7]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 1000
+Batch size: 32
+Learning rate: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.05
+###############################################
+Best:
+0.9425859441552634
+###############################################
+Part: 2
+Lowest value loss: 0.9295916139653316
+Epoch with lowest value loss: 52
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+# Architecture:
+Hidden layers: 2
+Hidden units: [8, 7]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 1000
+Batch size: 32
+Learning rate: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.05
+###############################################
+Best:
+0.9295916139653316
+###############################################
+Part: 3
+Lowest value loss: 0.5528251733307453
+Epoch with lowest value loss: 347
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+# Architecture:
+Hidden layers: 2
+Hidden units: [16, 7]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 1000
+Batch size: 32
+Learning rate: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.05
+###############################################
+Best:
+0.5528251733307453
+###############################################
+Part: 4
+Lowest value loss: 0.5409340747652064
+Epoch with lowest value loss: 157
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+# Architecture:
+Hidden layers: 2
+Hidden units: [32, 7]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 1000
+Batch size: 32
+Learning rate: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.05
+###############################################
+Best:
+0.5409340747652064
+###############################################
+Part: 5
+Lowest value loss: 0.4791713731707786
+Epoch with lowest value loss: 113
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+# Architecture:
+Hidden layers: 2
+Hidden units: [64, 7]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 1000
+Batch size: 32
+Learning rate: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.05
+###############################################
+Best:
+0.4791713731707786
+###############################################
+Part: 6
+Lowest value loss: 0.37553360428094135
+Epoch with lowest value loss: 177
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+# Architecture:
+Hidden layers: 2
+Hidden units: [128, 7]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 1000
+Batch size: 32
+Learning rate: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.05
+###############################################
+Best:
+0.37553360428094135

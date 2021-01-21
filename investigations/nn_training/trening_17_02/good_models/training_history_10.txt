@@ -1,0 +1,53 @@
+
+###############################################
+Part: 5
+Lowest value loss: 2.2585040047171168
+Epoch with lowest value loss: 100
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+
+# Architecture:
+Hidden layers: 2
+Hidden units: [128, 16]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 100
+Batch size: 32
+Learning rate: 1e-06
+L2 regularization: 0.001
+Dropout rate: 0.2
+Initial weight limit: 0.1
+###############################################
+Best:
+2.2585040047171168
+###############################################
+Part: 5
+Lowest value loss: 0.1026265574990181
+Epoch with lowest value loss: 95
+
+# Dataset:
+Normalize input: True
+Normalize output: True
+
+# Architecture:
+Hidden layers: 2
+Hidden units: [128, 16]
+Activation function: relu
+Optimizer: adam
+Loss function: mean_squared_error
+
+# Hyper parameters:
+Max epochs: 100
+Batch size: 32
+Learning rate: 0.001
+L2 regularization: 1e-06
+Dropout rate: 0.2
+Initial weight limit: 0.1
+###############################################
+Best:
+0.1026265574990181
