@@ -155,9 +155,9 @@ def main(test_number):
     pub_heartbeat = rospy.Publisher("/heartbeat_data_collection", Empty, queue_size=10)
     heartbeat_msg = Empty()
 
-    rospy.loginfo("Starting data collection...")
+    rospy.loginfo("Starting data collection.. Make sure this terminal window is in /master_thesis/.")
     time.sleep(1)
-    rospy.loginfo("... Ready!")
+    rospy.loginfo("... Ready! Press d in key teleop to start.")
 
     data_array = []
 
