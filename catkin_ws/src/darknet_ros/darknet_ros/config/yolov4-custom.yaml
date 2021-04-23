@@ -1,0 +1,13 @@
+yolo_model:
+
+  config_file:
+    name: yolov4-custom.cfg
+  weight_file:
+    name: yolov4-custom.weights
+  threshold:
+    value: 0.3
+  detection_classes:
+    names:
+      - H
+      - Arrow
+      - Helipad
