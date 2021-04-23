@@ -1,3 +1,0 @@
-[submodule "catkin_ws/src/darknet_ros"]
-	path = catkin_ws/src/darknet_ros
-	url = https://github.com/tom13133/darknet_ros
