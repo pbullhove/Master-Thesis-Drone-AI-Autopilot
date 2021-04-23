@@ -138,18 +138,23 @@ def est_radius_of_bb(bb):
 
 def est_rotation(H, Arrow):
     # rotation defined as positive right of line between H and arrow.
-    x_h, y_h = est_center_of_bb(H)
-    x_a, y_a = est_center_of_bb(Arrow)
-    theta = math.atan2(y_a-y_h, x_a-x_h)
-    theta -= math.pi/2
-    theta *= -1
-    return theta
+    hx, hy = est_center_of_bb(H)
+    ax, ay = est_center_of_bb(Arrow)
 
-def downscale_H_by_rotation(H, rotation):
+    hy = IMG_HEIGHT - hy
+    ay = IMG_HEIGHT - ay
+
+    rad = math.atan2(ay-hy, ax-hx)
+    deg = rad2deg(rad)
+    deg *= -1
+    return deg
+
+
+def downscale_H_by_rotation(H, theta):
     cx, cy = est_center_of_bb(H)
-    theta = int(rad2deg(rotation))
     theta = theta % 180
     theta = abs(theta)
+    rotation = deg2rad(theta)
 
     cos = abs(math.cos(rotation))
     sin = abs(math.sin(rotation))
@@ -177,6 +182,8 @@ def estimate_center_rotation_and_radius(bounding_boxes):
     center = [None, None]
     radius = None
     rotation = None
+
+
     if 'H' in classes:
         H = find_best_bb_of_class(bounding_boxes, 'H')
         if 'Arrow' in classes:
