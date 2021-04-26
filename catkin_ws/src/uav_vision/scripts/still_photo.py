@@ -8,7 +8,7 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 bridge = CvBridge()
 
-global_image_save_path = '/home/peter/Documents/project_thesis/catkin_ws/images/still_photos/'
+global_image_save_path = '/home/peter/master_thesis/catkin_ws/images/still_photos/'
 global_image = None
 counter = 0
 
