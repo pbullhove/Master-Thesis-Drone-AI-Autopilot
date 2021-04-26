@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+import rospy
+
+
+# Quadcopter States
+STATE_INIT = 0
+STATE_TAKEOFF = 1
+STATE_HOVER = 2
+STATE_LANDING = 3
+STATE_PHOTOTWIRL = 4
+STATE_MOVING = 5
+STATE_ERROR = 6
+STATE_IDLE = 7
