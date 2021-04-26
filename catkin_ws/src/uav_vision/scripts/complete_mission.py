@@ -5,20 +5,21 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, Bool
 
 
-from timer import Timer
+from timer import Timer, TimerError
 
 # Quadcopter States
-STATE_INIT = 0
-STATE_TAKEOFF = 1
-STATE_HOVER = 2
-STATE_LANDING = 3
-STATE_PHOTOTWIRL = 4
-STATE_MOVING = 5
-STATE_ERROR = 6
-STATE_IDLE = 7
+STATE_INIT = "STATE_INIT"
+STATE_TAKEOFF = "STATE_TAKEOFF"
+STATE_HOVER = "STATE_HOVER"
+STATE_LANDING = "STATE_LANDING"
+STATE_PHOTOTWIRL = "STATE_PHOTOTWIRL"
+STATE_MOVING = "STATE_MOVING"
+STATE_ERROR = "STATE_ERROR"
+STATE_IDLE = "STATE_IDLE"
 
 empty = Empty()
 desired_pose = Twist()
+desired_pose.linear.z = 3
 current_pose = Twist()
 timer = Timer()
 timeout_timer = Timer()
@@ -36,7 +37,7 @@ photos_taken = 0
 def estimate_callback(data):
     global current_pose
     global init_complete
-    print('received estimate')
+    #print('received estimate')
     init_complete = True
     current_pose = data
 
@@ -46,11 +47,32 @@ def landing_complete_callback(data):
     landing_complete = True
 
 
+def angular_distance(or_a, or_b):
+    return abs(or_a.x + or_a.y + or_a.z - or_b.x - or_b.y - or_b.z)
+
+def euclidean_distance(pos_a, pos_b):
+    a = np.array([pos_a.x, pos_a.y, pos_a.z])
+    b = np.array([pos_b.x, pos_b.y, pos_b.z])
+    return np.linalg.norm(a - b)
+
+def close_enough(pose_a, pose_b):
+    pos_a = pose_a.linear
+    pos_b = pose_b.linear
+    or_a = pose_a.angular
+    or_b = pose_b.angular
+
+    ang = angular_distance(or_a, or_b)
+    euc = euclidean_distance(pos_a, pos_b)
+
+    return ang < 5 and euc < 0.1
+
+
 def main():
     rospy.init_node('complete_mission',anonymous=True)
 
     global init_complete
     global landing_complete
+    global desired_pose
     global phototwirl_complete
     global photos_taken
     global empty
@@ -64,15 +86,56 @@ def main():
     rospy.Subscriber('/ardrone/land', Empty, landing_complete_callback)
 
 
-    timer.start(10)
+    timer.start(1)
+    print('State is:', state)
     while not rospy.is_shutdown():
         if state == STATE_INIT:
             if init_complete and timer.is_timeout():
                 timer.stop()
                 state = STATE_TAKEOFF
+                print('switching to: ', state)
                 pub_start_takeoff.publish(empty)
+                pub_desired_pose.publish(desired_pose)
 
         if state == STATE_TAKEOFF:
+            if close_enough(current_pose, desired_pose):
+                print('ye close enough')
+                state = STATE_HOVER
+                print('switching to: ', state)
+
+        if state == STATE_HOVER:
+            if close_enough(current_pose, desired_pose):
+                try:
+                    timer.start(5)
+                except TimerError as t:
+                    if timer.is_timeout():
+                        timer.stop()
+                        if phototwirl_complete:
+                            state = STATE_LANDING
+                            print('switching to: ', state)
+                            pub_start_automated_landing.publish(empty)
+                        else:
+                            state = STATE_PHOTOTWIRL
+                            print('switching to: ', state)
+
+        if state == STATE_PHOTOTWIRL:
+            if close_enough(current_pose, desired_pose):
+                #print('close enough during photoTwirl: current_pose: ', current_pose, 'desired_pose: ', desired_pose)
+                pub_save_front_camera_photo.publish(empty)
+                desired_pose.angular.z = [135, 45, -45, -135][photos_taken]
+                pub_desired_pose.publish(desired_pose)
+                photos_taken += 1
+                if photos_taken == 4:
+                    desired_pose.angular.z = 0
+                    pub_desired_pose.publish(desired_pose)
+                    state = STATE_HOVER
+                    print('switching to: ', state)
+                    phototwirl_complete = True
+
+        if state == STATE_LANDING:
+            if landing_complete:
+                state = STATE_IDLE
+                print('switching to: ', state)
 
 
 if __name__ == "__main__":
