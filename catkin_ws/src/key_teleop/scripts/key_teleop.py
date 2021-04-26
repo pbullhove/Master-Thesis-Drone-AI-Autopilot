@@ -186,7 +186,8 @@ class SimpleKeyTeleop():
         self._interface = interface
         self._pub_cmd = rospy.Publisher('key_vel', Twist)
         self._pub_ctr_switch = rospy.Publisher('/controller_switch', Bool)
-        self._pub_take_still_photo = rospy.Publisher('/take_still_photo', Empty)
+        self._pub_take_still_photo_front = rospy.Publisher('/take_still_photo_front', Empty)
+        self._pub_take_still_photo_bottom = rospy.Publisher('/take_still_photo_bottom', Empty)
         self._pub_initiate_automated_landing = rospy.Publisher('/initiate_automated_landing', Empty)
         self._pub_start_data_collection = rospy.Publisher('/start_data_collection', Empty)
 
@@ -288,7 +289,9 @@ class SimpleKeyTeleop():
         elif keycode == ord('o'):
             self._controller_on = 0
         elif keycode == ord('1'):
-            self._pub_take_still_photo.publish(Empty())
+            self._pub_take_still_photo_bottom.publish(Empty())
+        elif keycode == ord('2'):
+            self._pub_take_still_photo_front.publish(Empty())
         elif keycode == ord('L'):
             self._pub_initiate_automated_landing.publish(Empty())
         elif keycode == ord('d'):
