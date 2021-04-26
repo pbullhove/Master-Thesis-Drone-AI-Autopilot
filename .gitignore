@@ -2,3 +2,5 @@ build/
 devel/
 *.pyc
 *.png
+*.npy
+*.svg
