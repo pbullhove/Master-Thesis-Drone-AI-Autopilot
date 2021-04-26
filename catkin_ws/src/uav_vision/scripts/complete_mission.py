@@ -5,15 +5,24 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, Bool
 
 
-import FSM_states
 from timer import Timer
 
+# Quadcopter States
+STATE_INIT = 0
+STATE_TAKEOFF = 1
+STATE_HOVER = 2
+STATE_LANDING = 3
+STATE_PHOTOTWIRL = 4
+STATE_MOVING = 5
+STATE_ERROR = 6
+STATE_IDLE = 7
 
+empty = Empty()
 desired_pose = Twist()
 current_pose = Twist()
 timer = Timer()
 timeout_timer = Timer()
-current_state = STATE_INIT
+state = STATE_INIT
 init_complete = False
 landing_complete = False
 phototwirl_complete = False
@@ -26,22 +35,26 @@ photos_taken = 0
 #############
 def estimate_callback(data):
     global current_pose
+    global init_complete
+    print('received estimate')
+    init_complete = True
     current_pose = data
 
 def landing_complete_callback(data):
     global landing_complete
+    print('received landing complete')
     landing_complete = True
-
-def init_complete_callback(data):
-    global init_complete
-    init_complete = True
 
 
 def main():
     rospy.init_node('complete_mission',anonymous=True)
 
-
-    #pub_init_drone = rospy.Publisher('/')
+    global init_complete
+    global landing_complete
+    global phototwirl_complete
+    global photos_taken
+    global empty
+    global state
     pub_desired_pose = rospy.Publisher("/set_point", Twist, queue_size=1)
     pub_start_takeoff = rospy.Publisher("/ardrone/takeoff", Empty, queue_size=10)
     pub_start_automated_landing = rospy.Publisher('/initiate_automated_landing', Empty, queue_size=1)
@@ -51,10 +64,15 @@ def main():
     rospy.Subscriber('/ardrone/land', Empty, landing_complete_callback)
 
 
-
+    timer.start(10)
     while not rospy.is_shutdown():
-        pass
+        if state == STATE_INIT:
+            if init_complete and timer.is_timeout():
+                timer.stop()
+                state = STATE_TAKEOFF
+                pub_start_takeoff.publish(empty)
 
+        if state == STATE_TAKEOFF:
 
 
 if __name__ == "__main__":
