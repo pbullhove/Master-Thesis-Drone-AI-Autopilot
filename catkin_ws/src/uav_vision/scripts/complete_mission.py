@@ -120,14 +120,12 @@ def main():
 
         if state == STATE_PHOTOTWIRL:
             if close_enough(current_pose, desired_pose):
-                #print('close enough during photoTwirl: current_pose: ', current_pose, 'desired_pose: ', desired_pose)
                 pub_save_front_camera_photo.publish(empty)
-                desired_pose.angular.z = [135, 45, -45, -135][photos_taken]
-                pub_desired_pose.publish(desired_pose)
                 photos_taken += 1
+                #desired_pose.angular.z = [135, 45, -45, -135][photos_taken]
+                desired_pose.angular.z = [0, 90, 179, -90, 0][photos_taken]
+                pub_desired_pose.publish(desired_pose)
                 if photos_taken == 4:
-                    desired_pose.angular.z = 0
-                    pub_desired_pose.publish(desired_pose)
                     state = STATE_HOVER
                     print('switching to: ', state)
                     phototwirl_complete = True
