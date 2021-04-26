@@ -73,6 +73,8 @@ def controller(state):
     prev_time = curr_time
 
     error = desired_pose - state
+    if error[5] < -180:
+        error[5] += 360
     error_integral += (time_interval * (error_prev + error)/2.0)*np.invert(freeze_integral)
     error_derivative = error - error_prev
     error_prev = error
