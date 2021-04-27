@@ -39,6 +39,8 @@ class Timer:
 
     def is_timeout(self):
         """Checks whether the timer has been running longer than the allotted duration. """
+        if self._start_time is None:
+            raise TimerError("Timer is not running. Use .start() to start it")
         if self._duration is not None:
             return (dt.datetime.now() - self._start_time).total_seconds() > self._duration
         else:
