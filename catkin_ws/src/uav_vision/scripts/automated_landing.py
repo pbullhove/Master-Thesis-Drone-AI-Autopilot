@@ -112,6 +112,7 @@ def main():
     set_point_msg = Twist()
 
     rospy.loginfo("Starting automated landing module")
+    print_state(global_state)
 
     publish_rate = 10 # Hz
 
@@ -125,7 +126,7 @@ def main():
 
     margin = np.array([distance_margin]*3)
     pre_mission_time = 1 # second(s)
-        
+
     rate = rospy.Rate(publish_rate) # Hz
     while not rospy.is_shutdown():
         use_cv = True
@@ -133,7 +134,7 @@ def main():
         current_position = est_relative_position
 
         if global_state == S_INIT:
-            global_state = S_INIT
+            pass
 
         elif global_state == S_PRE_LANDING:
             curr_time = rospy.get_time()
@@ -146,6 +147,7 @@ def main():
                 next_minor_set_point = next_major_set_point
 
                 global_state = S_LANDING
+                print_state(global_state)
 
         elif global_state == S_LANDING:
             # Time to change to next major setpoint
@@ -156,6 +158,7 @@ def main():
                     mission_count = 0
                     pub_land.publish(Empty())
                     global_state = S_LANDED
+                    print_state(global_state)
                 else:
                     next_major_set_point = global_mission[mission_count+1]
 
@@ -166,7 +169,7 @@ def main():
                     num_steps = step_time * publish_rate
                     step_distance = translation / num_steps
                     next_minor_set_point = prev_major_set_point
-                    
+
                     prev_major_set_point = next_major_set_point
                     publish_set_point(pub_set_point, next_minor_set_point)
 
@@ -184,13 +187,13 @@ def main():
 
         elif global_state == S_LANDED:
             publish_set_point(pub_set_point, np.zeros(3))
-            rospy.loginfo("Autonomy disabled")
-            break
-    
-        print_state(global_state)
+            rospy.loginfo("Landed: Ready to go again!")
+            global_state = S_INIT
+            print_state(global_state)
+
 
         rate.sleep()
-    
-    
+
+
 if __name__ == '__main__':
     main()
