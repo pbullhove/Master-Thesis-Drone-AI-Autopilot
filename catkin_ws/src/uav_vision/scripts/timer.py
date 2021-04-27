@@ -30,6 +30,13 @@ class Timer:
         return elapsed_time
 
 
+    def reset(self):
+        if self._start_time is None:
+            raise TimerError("Timer is not running. Use .start() to start it")
+        self.stop()
+        self.start(self._duration)
+
+
     def is_timeout(self):
         """Checks whether the timer has been running longer than the allotted duration. """
         if self._duration is not None:
