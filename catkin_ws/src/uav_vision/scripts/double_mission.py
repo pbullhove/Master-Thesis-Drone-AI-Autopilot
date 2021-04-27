@@ -3,7 +3,7 @@ import rospy
 import numpy as np
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, Bool
-
+import copy as cp
 
 from timer import Timer, TimerError
 
@@ -20,7 +20,7 @@ STATE_IDLE = "STATE_IDLE"
 empty = Empty()
 desired_pose = Twist()
 desired_pose.linear.z = 3
-hover_pose = desired_pose
+hover_pose = cp.deepcopy(desired_pose)
 current_pose = Twist()
 timer = Timer()
 error_timer = Timer()
@@ -75,6 +75,7 @@ def main():
     global received_estimate
     global landing_complete
     global desired_pose
+    global hover_pose
     global phototwirl_complete
     global photos_taken
     global empty
@@ -116,7 +117,7 @@ def main():
                 error_timer.reset()
                 print('ye close enough')
                 state = STATE_MOVING
-                desired_pose.linear.x = 5
+                desired_pose.linear.x = 3
                 pub_desired_pose.publish(desired_pose)
                 print('switching to: ', state)
 
@@ -128,15 +129,10 @@ def main():
                 except TimerError as t:
                     if timer.is_timeout():
                         timer.stop()
-                        if phototwirl_complete and close_enough(current_pose, hover_pose):
+                        if phototwirl_complete:
                             state = STATE_LANDING
                             print('switching to: ', state)
                             pub_start_automated_landing.publish(empty)
-                        elif phototwirl_complete:
-                            state = STATE_MOVING
-                            desired_pose = hover_pose
-                            pub_desired_pose.publish(hover_pose)
-                            print('switching to: ', state)
                         else:
                             state = STATE_PHOTOTWIRL
                             print('switching to: ', state)
@@ -157,9 +153,11 @@ def main():
                     desired_pose.angular.z = [0, 90, 179, -90, 0][photos_taken]
                     pub_desired_pose.publish(desired_pose)
                 else:
-                    state = STATE_HOVER
+                    state = STATE_MOVING
                     print('switching to: ', state)
                     phototwirl_complete = True
+                    desired_pose = cp.deepcopy(hover_pose)
+                    pub_desired_pose.publish(desired_pose)
 
         if state == STATE_LANDING:
             if landing_complete:
