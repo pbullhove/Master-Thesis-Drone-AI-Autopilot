@@ -17,7 +17,6 @@ def gt_callback(data):
 def generate_random_errors(standard_deviation):
     mu = 0
     xyz = np.random.normal(mu, standard_deviation, 3)
-    print(xyz)
     return xyz
 
 def main():
