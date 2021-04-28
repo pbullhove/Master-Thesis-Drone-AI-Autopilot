@@ -12,7 +12,7 @@ class Timer:
         self._start_time = None
         self._duration = None
 
-    def start(self, duration=None):
+    def start(self, duration):
         """Start a new timer"""
         self._duration = duration
         if self._start_time is not None:
