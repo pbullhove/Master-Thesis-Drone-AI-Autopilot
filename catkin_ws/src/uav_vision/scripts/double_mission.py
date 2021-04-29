@@ -86,7 +86,9 @@ def main():
     pub_save_front_camera_photo = rospy.Publisher('/take_still_photo_front',Empty, queue_size=1)
     control_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
     pid_off = rospy.Publisher('/pid_on_off', Bool, queue_size=1)
-    rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
+    #rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
+    rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
+
     rospy.Subscriber('/ardrone/land', Empty, landing_complete_callback)
 
     def init_complete():
@@ -114,7 +116,6 @@ def main():
         if state == STATE_TAKEOFF:
             if close_enough(current_pose, desired_pose):
                 error_timer.reset()
-                print('ye close enough')
                 state = STATE_MOVING
                 desired_pose.linear.x = 3
                 pub_desired_pose.publish(desired_pose)
@@ -145,6 +146,7 @@ def main():
 
         if state == STATE_PHOTOTWIRL:
             if close_enough(current_pose, desired_pose):
+                print('photo: close enough', current_pose, desired_pose)
                 if photos_taken < 4:
                     pub_save_front_camera_photo.publish(empty)
                     photos_taken += 1
