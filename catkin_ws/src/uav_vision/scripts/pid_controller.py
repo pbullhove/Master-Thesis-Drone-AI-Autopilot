@@ -19,9 +19,33 @@ gt_relative_position = None
 est_relative_position = None
 prev_time = None
 pid_on_off = True
+prev_setpoint_yaw = None
+wf_setpoint = None
+bf_setpoint = None
+def R_inv(yaw):
+    yaw *= math.pi/180
+    c = math.cos(yaw)
+    s = math.sin(yaw)
+    r_inv = np.array([[c, s, 0],[-s, c, 0],[0,0,1]])
+    return r_inv
+
+
 
 def estimate_callback(data):
     global est_relative_position
+    global wf_setpoint
+    global bf_setpoint
+    global prev_setpoint_yaw
+    try: #rotate setpint to match body frame given new yaw
+        if abs(est_relative_position[5] - prev_setpoint_yaw) > 2:
+            old_setpoint_xy = np.array([wf_setpoint[0], wf_setpoint[1], 1])
+            new_setpoint_xy = np.dot(R_inv(data.angular.z),old_setpoint_xy)
+            bf_setpoint[0:2] = new_setpoint_xy[0:2]
+            prev_setpoint_yaw = data.angular.z
+    except TypeError as e: # no prev setpoint yaw
+        prev_setpoint_yaw = data.angular.z
+        pass
+
     est_relative_position = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
 
@@ -35,7 +59,7 @@ error_integral = np.array([0.0]*6)
 error_derivative = np.array([0.0]*6)
 freeze_integral = np.array([False]*6)
 
-desired_pose = cfg.controller_desired_pose
+wf_setpoint = cfg.controller_desired_pose
 
 # Kp = np.array([Kp_x] + [Kp_y] + [Kp_position_z] + [0.0]*2 + [-Kp_orientation])
 Kp = np.array([cfg.Kp_position_x] + [cfg.Kp_position_y] + [cfg.Kp_position_z] + [0.0]*2 + [cfg.Kp_orientation])
@@ -47,11 +71,14 @@ error_integral_limit = cfg.error_integral_limit
 
 
 def set_point_callback(data):
-    global desired_pose
-    desired_pose[0] = data.linear.x # + cfg.offset_setpoint_x
-    desired_pose[1] = data.linear.y
-    desired_pose[2] = data.linear.z
-    desired_pose[5] = data.angular.z
+    global wf_setpoint
+    wf_setpoint[0] = data.linear.x # + cfg.offset_setpoint_x
+    wf_setpoint[1] = data.linear.y
+    wf_setpoint[2] = data.linear.z
+    wf_setpoint[5] = data.angular.z
+
+    bf_setpoint[2] = data.linear.z
+    bf_setpoint[5] = data.angular.z
 
 
 def take_off_callback(data):
@@ -72,7 +99,7 @@ def controller(state):
     time_interval = curr_time - prev_time
     prev_time = curr_time
 
-    error = desired_pose - state
+    error = bf_setpoint - state
     if error[5] < -180:
         error[5] += 360
     error_integral += (time_interval * (error_prev + error)/2.0)*np.invert(freeze_integral)
@@ -80,7 +107,7 @@ def controller(state):
     error_prev = error
     # error_integral = np.clip(error_integral, -error_integral_limit, error_integral_limit)
 
-    z_reference = desired_pose[2]
+    z_reference = bf_setpoint[2]
     actuation_reduction_array = np.array([1.0]*6)
     if z_reference > 2.5:
         actuation_reduction_x_y = np.maximum(2.5 / z_reference, 0.1)
@@ -105,13 +132,15 @@ def controller(state):
 
 def main():
     global prev_time
+    global bf_setpoint
 
     rospy.init_node('pid_controller', anonymous=True)
 
     use_estimate = True
 
     if use_estimate:
-        rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
+        #rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
+        rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
     else:
         rospy.Subscriber('/drone_ground_truth', Twist, estimate_callback)
 
@@ -138,12 +167,12 @@ def main():
     rospy.loginfo("Starting doing PID control with ar_pose as feedback")
 
     reference_msg = Twist()
-    reference_msg.linear.x = desired_pose[0]
-    reference_msg.linear.y = desired_pose[1]
-    reference_msg.linear.z = desired_pose[2]
-    reference_msg.angular.x = desired_pose[3]
-    reference_msg.angular.y = desired_pose[4]
-    reference_msg.angular.z = desired_pose[5]
+    reference_msg.linear.x = bf_setpoint[0]
+    reference_msg.linear.y = bf_setpoint[1]
+    reference_msg.linear.z = bf_setpoint[2]
+    reference_msg.angular.x = bf_setpoint[3]
+    reference_msg.angular.y = bf_setpoint[4]
+    reference_msg.angular.z = bf_setpoint[5]
 
     pose_msg = Twist()
     error_msg = Twist()
@@ -171,12 +200,12 @@ def main():
             control_pub.publish(msg)
 
             # Publish values for tuning
-            reference_msg.linear.x = desired_pose[0]
-            reference_msg.linear.y = desired_pose[1]
-            reference_msg.linear.z = desired_pose[2]
-            reference_msg.angular.x = desired_pose[3]
-            reference_msg.angular.y = desired_pose[4]
-            reference_msg.angular.z = desired_pose[5]
+            reference_msg.linear.x = bf_setpoint[0]
+            reference_msg.linear.y = bf_setpoint[1]
+            reference_msg.linear.z = bf_setpoint[2]
+            reference_msg.angular.x = bf_setpoint[3]
+            reference_msg.angular.y = bf_setpoint[4]
+            reference_msg.angular.z = bf_setpoint[5]
             reference_pub.publish(reference_msg)
 
             # pose_msg.linear.x = gt_relative_position[0]
