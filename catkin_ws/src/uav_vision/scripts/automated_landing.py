@@ -103,7 +103,9 @@ def main():
     global global_state
     rospy.init_node('automated_landing', anonymous=True)
 
-    rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
+    #rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
+
+    rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
     rospy.Subscriber('/initiate_automated_landing', Empty, initiate_landing_callback)
 
     pub_set_point = rospy.Publisher("/set_point", Twist, queue_size=1)
