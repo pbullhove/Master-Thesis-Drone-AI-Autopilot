@@ -44,7 +44,7 @@ def main():
     rospy.init_node('filter', anonymous=True)
 
     rospy.Subscriber('/estimate/tcv_estimate', Twist, estimate_callback)
-    filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
+    filtered_estimate_pub = rospy.Publisher('/estimate', Twist, queue_size=10)
 
     rospy.loginfo("Starting filter for estimate")
 

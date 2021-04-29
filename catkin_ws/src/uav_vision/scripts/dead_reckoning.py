@@ -173,11 +173,11 @@ def main():
     rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
     rospy.Subscriber('/ground_truth/state', Odometry, gt_callback)
 
-    rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
+    rospy.Subscriber('/estimate', Twist, estimate_callback)
     rospy.Subscriber('/estimate_method', Int8, estimate_method_callback)
 
 
-    pub_dead_reckoning = rospy.Publisher("/estimate/dead_reckoning", Twist, queue_size=10)
+    pub_dead_reckoning = rospy.Publisher("filtered_estimate", Twist, queue_size=10)
     pub_dead_reckoning_error = rospy.Publisher("/estimate_error/dead_reckoning", Twist, queue_size=10)
 
 
