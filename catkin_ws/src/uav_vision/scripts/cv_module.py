@@ -1408,13 +1408,13 @@ def main():
 
             pub_est_method.publish(Int8(method))
 
-            # Publish the estimate
-            est_msg.linear.x = est[0]
-            est_msg.linear.y = est[1]
-            est_msg.linear.z = est[2]
-            est_msg.angular.z = est[5]
-            pub_est.publish(est_msg)
-
+            if any(est):
+                # Publish the estimate
+                est_msg.linear.x = est[0]
+                est_msg.linear.y = est[1]
+                est_msg.linear.z = est[2]
+                est_msg.angular.z = est[5]
+                pub_est.publish(est_msg)
             count += 1
             if use_test_image:
                 break
