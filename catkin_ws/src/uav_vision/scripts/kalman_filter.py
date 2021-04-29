@@ -1,68 +1,115 @@
 #!/usr/bin/env python
 import rospy
 import numpy as np
+from geometry_msgs.msg import Twist
+from ardrone_autonomy.msg import Navdata
+from sensor_msgs.msg import Imu
+from nav_msgs.msg import Odometry
+from datetime import datetime
+import time
+
+import config as cfg
 
 
-x = np.matrix('')
-P = np.matrix('')
+freq_yolo = 30
+freq_tcv = 10
+freq_gps = 1
+freq_imu = 100
 
-A = np.matrix('')
-B = np.matrix('')
+K_yolo = 0.1*np.eye(6)/freq_yolo
+K_tcv = 10*np.eye(6)/freq_tcv
+K_gps = 0.5*np.eye(3)/freq_gps
+K_yaw = 0.1*np.eye(1)/freq_imu
 
-C_imu = np.matrix('')
-C_yolo = np.matrix('')
-C_tcv = np.matrix('')
+C_yolo = np.eye(6)
+C_tcv = np.eye(6)
+C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
+C_yaw = np.array([0,0,0,0,0,1])
 
-Q = np.matrix('')
+def yolo_estimate_callback(data):
+    global global_estimate
+    yolo_estimate = to_array(data)
+    global_estimate = global_estimate + np.dot(K_yolo,(yolo_estimate - np.dot(C_yolo,global_estimate)))
 
-R_imu = np.matrix('')
-R_yolo = np.matrix('')
-R_tcv = np.matrix('')
+def tcv_estimate_callback(data):
+    global global_estimate
+    tcv_estimate = to_array(data)
+    global_estimate = global_estimate + np.dot(K_tcv,(tcv_estimate - np.dot(C_tcv,global_estimate)))
 
-
-def imu_measurement_callback(data):
-    global x, P
-    y = data
-    x, P = kf_update(x, P, y, C_imu, R_imu)
-
-def tcv_measurement_callback(data):
-    global x, P
-    y = data
-    x, P = kf_update(x, P, y, C_tcv, R_tcv)
-
-def yolo_measurement_callback(data):
-    global x, P
-    y = data
-    x, P = kf_update(x, P, y, C_yolo, R_tcv)
-
-
-
-def kf_predict(x, P, A, Q, B, u):
-    x = np.dot(A,x) + np.dot(B,U)
-    P = np.dot(A, np.dot(P, A.T)) + Q
-    return (x, P)
-
-
-def kf_update(x, P, y, C, R):
-    IM = np.dot(C, x)
-    IS = R + np.dot(C, np.dot(P, C.T))
-    K = np.dot(P, np,dot(C.T, np.inv(IS)))
-    x = x + np.dot(K, (Y-IM))
-    P = P - np.dot(K, np.dot(IS, K.T))
-    return (x, P)
+def gps_callback(data):
+    global global_estimate
+    gps_estimate = to_array(data)
+    gps_estimate = gps_estimate[0:3]
+    global_estimate[0:3] = global_estimate[0:3] + np.dot(K_gps,(gps_estimate - np.dot(C_gps,global_estimate)))
 
 
 
-if __name__ == "__main__":
-    rospy.init_node('kalman_filter', anonymous=True)
-    rospy.Subscriber('/measurement/imu', Twist, imu_measurement_callback)
-    rospy.Subscriber('/measurement/yolo', Twist, yolo_measurement_callback)
-    rospy.Subscriber('/measurement/tcv', Twist, tcv_measurement_callback)
+prev_imu_yaw = None
+prev_navdata_timestamp = None
+def navdata_callback(data):
+    global global_estimate
+    global prev_imu_yaw
+    global prev_navdata_timestamp
+    try:
+        delta_imu_yaw = data.rotZ - prev_imu_yaw
+        now = datetime.now()
+        delta_t = (now - prev_navdata_timestamp).total_seconds()
+        prev_navdata_timestamp = now
+    except TypeError as e: #first iteration
+        delta_imu_yaw = 0
+        delta_t = 0
+        prev_navdata_timestamp = datetime.now()
+    finally:
+        prev_imu_yaw = data.rotZ
 
-    kf_publisher = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
-    kf_estimate = Twist()
 
-    rate = rospy.Rate(50)
+    global_estimate[5] = global_estimate[5] + delta_imu_yaw
+    if global_estimate[5] < -180:
+        global_estimate[5] += 360
+    elif global_estimate[5] > 180:
+        global_estimate[5] -= 360
+
+
+def to_Twist(data):
+    msg = Twist()
+    msg.linear.x = data[0]
+    msg.linear.y = data[1]
+    msg.linear.z = data[2]
+    msg.angular.x = data[3]
+    msg.angular.y = data[4]
+    msg.angular.z = data[5]
+    return msg
+
+def to_array(twist):
+    arr = np.array([twist.linear.x, twist.linear.y, twist.linear.z, twist.angular.x, twist.angular.y, twist.angular.z])
+    return arr
+
+
+def to_body_frame(data)
+
+
+global_estimate = np.zeros(6)
+def main():
+    global global_estimate
+    rospy.init_node('combined_filter', anonymous=True)
+
+    rospy.Subscriber('/estimate/yolo_estimate', Twist, yolo_estimate_callback)
+    rospy.Subscriber('/estimate/tcv_estimate', Twist, tcv_estimate_callback)
+    rospy.Subscriber('/mock_gps', Twist, gps_callback)
+    rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
+
+    filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
+
+    rospy.loginfo("Starting combined filter for estimate")
+
+
+    rate = rospy.Rate(30) # Hz
     while not rospy.is_shutdown():
-
+        global_estimate = [round(i,5) for i in global_estimate]
+        msg = to_Twist(global_estimate)
+        filtered_estimate_pub.publish(msg)
         rate.sleep()
+
+
+if __name__ == '__main__':
+    main()
