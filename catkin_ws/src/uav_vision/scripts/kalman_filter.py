@@ -3,7 +3,7 @@ import rospy
 import numpy as np
 from geometry_msgs.msg import Twist
 from ardrone_autonomy.msg import Navdata
-from sensor_msgs.msg import Imu
+from sensor_msgs.msg import Imu, Range
 from nav_msgs.msg import Odometry
 from datetime import datetime
 from scipy.spatial.transform import Rotation as R
@@ -21,22 +21,35 @@ freq_imu = 100
 K_yolo = 0.1*np.eye(6)/freq_yolo
 K_tcv = 10*np.eye(6)/freq_tcv
 K_gps = 0.5*np.eye(3)/freq_gps
-K_imu = 100*np.eye(6)/freq_imu
+K_imu = np.eye(6)
+K_sonar = 1*np.eye(1)
 
 C_yolo = np.eye(6)
 C_tcv = np.eye(6)
 C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
 C_yaw = np.array([0,0,0,0,0,1])
+C_sonar = np.array([0,0,1,0,0,0])
+
+
+def kalman_gain(P_apri,C,R):
+    CT = np.transpose(C)
+    PCT = np.dot(P_apri, CT)
+    IS = R + np.dot(C, PCT)
+    IS_inv = np.linalg.inv(IS)
+    K = np.dot(PCT,IS_inv)
+    return K
 
 def yolo_estimate_callback(data):
     global global_estimate
     yolo_estimate = to_array(data)
-    global_estimate = global_estimate + np.dot(K_yolo,(yolo_estimate - np.dot(C_yolo,global_estimate)))
+    if global_estimate[2] > 0.7: 
+        global_estimate = global_estimate + np.dot(K_yolo,(yolo_estimate - np.dot(C_yolo,global_estimate)))
 
 def tcv_estimate_callback(data):
     global global_estimate
     tcv_estimate = to_array(data)
-    global_estimate = global_estimate + np.dot(K_tcv,(tcv_estimate - np.dot(C_tcv,global_estimate)))
+    if global_estimate[2] > 0.4:
+        global_estimate = global_estimate + np.dot(K_tcv,(tcv_estimate - np.dot(C_tcv,global_estimate)))
 
 def gps_callback(data):
     global global_estimate
@@ -44,6 +57,12 @@ def gps_callback(data):
     gps_estimate = gps_estimate[0:3]
     global_estimate[0:3] = global_estimate[0:3] + np.dot(K_gps,(gps_estimate - np.dot(C_gps,global_estimate)))
 
+
+def sonar_callback(data):
+    global global_estimate
+    sonar_estimate = data.range
+    if sonar_estimate < 2: 
+        global_estimate[2] = global_estimate[2] + np.dot(K_sonar,(sonar_estimate - np.dot(C_sonar, global_estimate)))
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
 calibration_acc = np.array([0.0, 0.0, 9.81]) 
@@ -118,6 +137,7 @@ def to_array(twist):
 
 
 global_estimate = np.zeros(6)
+P = np.ones((6,6))
 def main():
     global global_estimate
     rospy.init_node('combined_filter', anonymous=True)
@@ -125,6 +145,7 @@ def main():
     rospy.Subscriber('/estimate/yolo_estimate', Twist, yolo_estimate_callback)
     rospy.Subscriber('/estimate/tcv_estimate', Twist, tcv_estimate_callback)
     rospy.Subscriber('/mock_gps', Twist, gps_callback)
+    rospy.Subscriber('/sonar_height', Range, sonar_callback)
     rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
 
     filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
