@@ -137,7 +137,7 @@ def main():
             if close_enough(current_pose, desired_pose):
                 error_timer.reset()
                 state = STATE_MOVING
-                desired_pose.linear.x = 3
+                desired_pose.linear.x = 10
                 pub_desired_pose.publish(desired_pose)
                 print('switching to: ', state)
 
