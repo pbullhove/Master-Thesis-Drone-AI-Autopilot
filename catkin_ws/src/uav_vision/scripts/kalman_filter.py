@@ -85,9 +85,6 @@ def to_array(twist):
     return arr
 
 
-def to_body_frame(data)
-
-
 global_estimate = np.zeros(6)
 def main():
     global global_estimate

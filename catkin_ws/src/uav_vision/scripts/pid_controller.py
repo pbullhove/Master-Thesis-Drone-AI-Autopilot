@@ -22,31 +22,36 @@ pid_on_off = True
 prev_setpoint_yaw = None
 wf_setpoint = None
 bf_setpoint = None
-def R_inv(yaw):
+
+
+
+def wf_to_bf(wf,yaw):
     yaw *= math.pi/180
     c = math.cos(yaw)
     s = math.sin(yaw)
     r_inv = np.array([[c, s, 0],[-s, c, 0],[0,0,1]])
-    return r_inv
 
-
+    wf = np.array([wf[0], wf[1], 1])
+    bf = np.dot(r_inv,wf)
+    return bf[0:2]
 
 def estimate_callback(data):
     global est_relative_position
     global wf_setpoint
     global bf_setpoint
     global prev_setpoint_yaw
+
+    est_relative_position = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
+
     try: #rotate setpint to match body frame given new yaw
         if abs(est_relative_position[5] - prev_setpoint_yaw) > 2:
-            old_setpoint_xy = np.array([wf_setpoint[0], wf_setpoint[1], 1])
-            new_setpoint_xy = np.dot(R_inv(data.angular.z),old_setpoint_xy)
-            bf_setpoint[0:2] = new_setpoint_xy[0:2]
+            bf_setpoint[0:2] = wf_to_bf(wf_setpoint[0:2], est_relative_position[5])
             prev_setpoint_yaw = data.angular.z
     except TypeError as e: # no prev setpoint yaw
         prev_setpoint_yaw = data.angular.z
         pass
 
-    est_relative_position = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
+    
 
 
 def pid_on_off_callback(data):
@@ -60,6 +65,8 @@ error_derivative = np.array([0.0]*6)
 freeze_integral = np.array([False]*6)
 
 wf_setpoint = cfg.controller_desired_pose
+bf_setpoint = [i for i in wf_setpoint]
+bf_setpoint[0:2] = wf_to_bf(wf_setpoint, 0)
 
 # Kp = np.array([Kp_x] + [Kp_y] + [Kp_position_z] + [0.0]*2 + [-Kp_orientation])
 Kp = np.array([cfg.Kp_position_x] + [cfg.Kp_position_y] + [cfg.Kp_position_z] + [0.0]*2 + [cfg.Kp_orientation])
@@ -72,14 +79,17 @@ error_integral_limit = cfg.error_integral_limit
 
 def set_point_callback(data):
     global wf_setpoint
+    global bf_setpoint
     wf_setpoint[0] = data.linear.x # + cfg.offset_setpoint_x
     wf_setpoint[1] = data.linear.y
     wf_setpoint[2] = data.linear.z
     wf_setpoint[5] = data.angular.z
-
-    bf_setpoint[2] = data.linear.z
-    bf_setpoint[5] = data.angular.z
-
+    try:
+        bf_setpoint[0:2] = wf_to_bf(wf_setpoint[0:2],est_relative_position[5])
+        bf_setpoint[2] = data.linear.z
+        bf_setpoint[5] = data.angular.z
+    except TypeError as e: 
+        bf_setpoint = [i for i in wf_setpoint]
 
 def take_off_callback(data):
     # Reset the error integral each take off,
@@ -126,7 +136,7 @@ def controller(state):
 
     freeze_integral = np.logical_and(saturated, same_sign)
 
-
+    #print(actuation_clipped)
     return actuation_clipped
 
 
@@ -167,12 +177,12 @@ def main():
     rospy.loginfo("Starting doing PID control with ar_pose as feedback")
 
     reference_msg = Twist()
-    reference_msg.linear.x = bf_setpoint[0]
-    reference_msg.linear.y = bf_setpoint[1]
-    reference_msg.linear.z = bf_setpoint[2]
-    reference_msg.angular.x = bf_setpoint[3]
-    reference_msg.angular.y = bf_setpoint[4]
-    reference_msg.angular.z = bf_setpoint[5]
+    # reference_msg.linear.x = bf_setpoint[0]
+    # reference_msg.linear.y = bf_setpoint[1]
+    # reference_msg.linear.z = bf_setpoint[2]
+    # reference_msg.angular.x = bf_setpoint[3]
+    # reference_msg.angular.y = bf_setpoint[4]
+    # reference_msg.angular.z = bf_setpoint[5]
 
     pose_msg = Twist()
     error_msg = Twist()

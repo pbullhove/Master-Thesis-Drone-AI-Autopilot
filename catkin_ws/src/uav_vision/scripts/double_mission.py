@@ -4,7 +4,7 @@ import numpy as np
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, Bool
 import copy as cp
-
+import math
 from timer import Timer, TimerError
 
 # Quadcopter States
@@ -32,15 +32,35 @@ received_estimate = False
 
 
 
+def bf_to_wf(bf):
+    yaw = bf.angular.z
+    yaw *= math.pi/180
+    c = math.cos(yaw)
+    s = math.sin(yaw)
+    r = np.array([[c, -s, 0],[s, c, 0],[0,0,1]])
+
+    wf = Twist()
+    xy = np.array([bf.linear.x, bf.linear.y, 1])
+    wf.linear.x, wf.linear.y = np.dot(r,xy)[0:2]
+    wf.linear.z = bf.linear.z
+    wf.angular.x = bf.angular.x
+    wf.angular.y = bf.angular.y
+    wf.angular.z = bf.angular.z
+    return wf
+
+
 #############
 # Callbacks #
 #############
+
+
 def estimate_callback(data):
     global current_pose
     global received_estimate
     #print('received estimate')
     received_estimate = True
-    current_pose = data
+    bf_pose = data
+    current_pose = bf_to_wf(bf_pose)
 
 def landing_complete_callback(data):
     global landing_complete
