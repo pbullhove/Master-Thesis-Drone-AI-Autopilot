@@ -428,7 +428,7 @@ void visualize(char *cfgfile, char *weightfile)
     wait_until_press_key_cv();
 #endif
 }
-
+/*
 int main(int argc, char **argv)
 {
 #ifdef _DEBUG
@@ -551,4 +551,4 @@ int main(int argc, char **argv)
         fprintf(stderr, "Not an option: %s\n", argv[1]);
     }
     return 0;
-}
+}*/
