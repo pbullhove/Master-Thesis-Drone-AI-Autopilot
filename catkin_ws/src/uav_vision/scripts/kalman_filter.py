@@ -40,29 +40,29 @@ def kalman_gain(P_apri,C,R):
     return K
 
 def yolo_estimate_callback(data):
-    global global_estimate
+    global x_est
     yolo_estimate = to_array(data)
-    if global_estimate[2] > 0.7: 
-        global_estimate = global_estimate + np.dot(K_yolo,(yolo_estimate - np.dot(C_yolo,global_estimate)))
+    if x_est[2] > 0.7: 
+        x_est = x_est + np.dot(K_yolo,(yolo_estimate - np.dot(C_yolo,x_est)))
 
 def tcv_estimate_callback(data):
-    global global_estimate
+    global x_est
     tcv_estimate = to_array(data)
-    if global_estimate[2] > 0.4:
-        global_estimate = global_estimate + np.dot(K_tcv,(tcv_estimate - np.dot(C_tcv,global_estimate)))
+    if x_est[2] > 0.4:
+        x_est = x_est + np.dot(K_tcv,(tcv_estimate - np.dot(C_tcv,x_est)))
 
 def gps_callback(data):
-    global global_estimate
+    global x_est
     gps_estimate = to_array(data)
     gps_estimate = gps_estimate[0:3]
-    global_estimate[0:3] = global_estimate[0:3] + np.dot(K_gps,(gps_estimate - np.dot(C_gps,global_estimate)))
+    x_est[0:3] = x_est[0:3] + np.dot(K_gps,(gps_estimate - np.dot(C_gps,x_est)))
 
 
 def sonar_callback(data):
-    global global_estimate
+    global x_est
     sonar_estimate = data.range
     if sonar_estimate < 2: 
-        global_estimate[2] = global_estimate[2] + np.dot(K_sonar,(sonar_estimate - np.dot(C_sonar, global_estimate)))
+        x_est[2] = x_est[2] + np.dot(K_sonar,(sonar_estimate - np.dot(C_sonar, x_est)))
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
 calibration_acc = np.array([0.0, 0.0, 9.81]) 
@@ -78,7 +78,7 @@ ONE_g = 9.8067
 prev_imu_yaw = None
 prev_navdata_timestamp = None
 def navdata_callback(data):
-    global global_estimate
+    global x_est
     global prev_imu_yaw
     global prev_navdata_timestamp
     try:
@@ -110,12 +110,12 @@ def navdata_callback(data):
 
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
 
-    global_estimate = global_estimate + np.dot(K_imu,delta_x)
+    x_est = x_est + np.dot(K_imu,delta_x)
 
-    if global_estimate[5] < -180:
-        global_estimate[5] += 360
-    elif global_estimate[5] > 180:
-        global_estimate[5] -= 360
+    if x_est[5] < -180:
+        x_est[5] += 360
+    elif x_est[5] > 180:
+        x_est[5] -= 360
 
 
 
@@ -136,10 +136,10 @@ def to_array(twist):
     return arr
 
 
-global_estimate = np.zeros(6)
+x_est = np.zeros(6)
 P = np.ones((6,6))
 def main():
-    global global_estimate
+    global x_est
     rospy.init_node('combined_filter', anonymous=True)
 
     rospy.Subscriber('/estimate/yolo_estimate', Twist, yolo_estimate_callback)
@@ -155,8 +155,8 @@ def main():
 
     rate = rospy.Rate(30) # Hz
     while not rospy.is_shutdown():
-        global_estimate = [round(i,5) for i in global_estimate]
-        msg = to_Twist(global_estimate)
+        x_est = [round(i,5) for i in x_est]
+        msg = to_Twist(x_est)
         filtered_estimate_pub.publish(msg)
         rate.sleep()
 
