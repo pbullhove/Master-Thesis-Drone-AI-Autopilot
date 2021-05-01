@@ -84,7 +84,7 @@ def main():
     pub_save_front_camera_photo = rospy.Publisher('/take_still_photo_front',Empty, queue_size=1)
     control_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
     pid_off = rospy.Publisher('/pid_on_off', Bool, queue_size=1)
-    rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
+    rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
     rospy.Subscriber('/ardrone/land', Empty, landing_complete_callback)
 
     def init_complete():

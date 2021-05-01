@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>control</name>
+  <version>0.0.0</version>
+  <description>Control package</description>
+
+  <maintainer email="peterbh@stud.ntnu.no">Peter Bull Hove</maintainer>
+  <license>BSD</license>
+
+
+  <!-- Url tags are optional, but multiple are allowed, one per tag -->
+  <!-- Optional attribute type can be: website, bugtracker, or repository -->
+  <!-- Example: -->
+  <!-- <url type="website">http://wiki.ros.org/uav_vision</url> -->
+
+  <author email="peterbh@stud.ntnu.no">Peter Bull Hove</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+</package>

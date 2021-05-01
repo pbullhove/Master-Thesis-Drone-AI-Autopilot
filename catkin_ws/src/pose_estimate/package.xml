@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>uav_vision</name>
+  <name>pose_estimate</name>
   <version>0.0.0</version>
-  <description>The uav_vision package</description>
+  <description>The pose_estimate package</description>
 
   <maintainer email="peterbh@stud.ntnu.no">Peter Bull Hove</maintainer>
   <license>BSD</license>
@@ -11,7 +11,7 @@
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/uav_vision</url> -->
+  <!-- <url type="website">http://wiki.ros.org/pose_estimate</url> -->
 
   <author email="thomsun@stud.ntnu.no">Thomas Sundvoll</author>
 

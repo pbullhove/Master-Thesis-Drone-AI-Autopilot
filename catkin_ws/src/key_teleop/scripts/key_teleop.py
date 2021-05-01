@@ -8,6 +8,7 @@
 #   * Siegfried-A. Gevatter
 
 # Modified by Thomas Sundvoll
+# Modified further by Peter Bull Hove
 
 import curses
 import math
