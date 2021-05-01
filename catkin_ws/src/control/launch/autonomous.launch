@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+    <node name="capture_photo" pkg="control" type="capture_photo.py" output="screen"/>
+    <node name="pid" pkg="control" type="pid.py" output="screen"/>
+    <node name="automated_landing" pkg="control" type="automated_landing.py" output="screen"/>
+</launch>

@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!-- Launch file based on uuv_gazebo_worlds/launch/ocean_waves.launch -->
 
 <launch>
@@ -28,5 +29,7 @@
         <arg name="y" value="0.0" />
         <arg name="z" value="0.7" />
     </include>
+
+    <include file="$(find setup)/launch/camera_view.launch"></include>
 </launch>
 

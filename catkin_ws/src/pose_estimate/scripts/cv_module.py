@@ -1154,12 +1154,14 @@ def get_estimate(hsv, count, current_ground_truth):
         msg.linear.z = est_ellipse_z
         msg.angular.z = est_ellipse_angle
         pub_est_ellipse.publish(msg)
-
-        msg.linear.x = est_ellipse_x - current_ground_truth[0]
-        msg.linear.y = est_ellipse_y - current_ground_truth[1]
-        msg.linear.z = est_ellipse_z - current_ground_truth[2]
-        msg.angular.z = est_ellipse_angle - current_ground_truth[5]
-        pub_est_error_ellipse.publish(msg)
+        try:
+            msg.linear.x = est_ellipse_x - current_ground_truth[0]
+            msg.linear.y = est_ellipse_y - current_ground_truth[1]
+            msg.linear.z = est_ellipse_z - current_ground_truth[2]
+            msg.angular.z = est_ellipse_angle - current_ground_truth[5]
+            pub_est_error_ellipse.publish(msg)
+        except TypeError as e: 
+            pass
 
         draw_dot(global_hsv_canvas_all, center_px, HSV_BLUE_COLOR, size=10)
     else:
@@ -1185,11 +1187,14 @@ def get_estimate(hsv, count, current_ground_truth):
         msg.angular.z = est_arrow_angle
         pub_est_arrow.publish(msg)
 
-        msg.linear.x = est_arrow_x - current_ground_truth[0]
-        msg.linear.y = est_arrow_y - current_ground_truth[1]
-        msg.linear.z = est_arrow_z - current_ground_truth[2]
-        msg.angular.z = est_arrow_angle - current_ground_truth[5]
-        pub_est_error_arrow.publish(msg)
+        try:
+            msg.linear.x = est_arrow_x - current_ground_truth[0]
+            msg.linear.y = est_arrow_y - current_ground_truth[1]
+            msg.linear.z = est_arrow_z - current_ground_truth[2]
+            msg.angular.z = est_arrow_angle - current_ground_truth[5]
+            pub_est_error_arrow.publish(msg)
+        except TypeError as e: 
+            pass
 
         draw_dot(global_hsv_canvas_all, center_px, HSV_RED_COLOR, size=7)
     else:
@@ -1220,12 +1225,15 @@ def get_estimate(hsv, count, current_ground_truth):
         msg.angular.z = est_corners_angle
         pub_est_corners.publish(msg)
 
-        msg.linear.x = est_corners_x - current_ground_truth[0]
-        msg.linear.y = est_corners_y - current_ground_truth[1]
-        msg.linear.z = est_corners_z - current_ground_truth[2]
-        msg.angular.z = est_corners_angle - current_ground_truth[5]
-        pub_est_error_corners.publish(msg)
-
+        try: 
+            msg.linear.x = est_corners_x - current_ground_truth[0]
+            msg.linear.y = est_corners_y - current_ground_truth[1]
+            msg.linear.z = est_corners_z - current_ground_truth[2]
+            msg.angular.z = est_corners_angle - current_ground_truth[5]
+            pub_est_error_corners.publish(msg)
+        except TypeError as e: 
+            pass 
+        
         draw_dot(global_hsv_canvas_all, center_px, HSV_YELLOW_COLOR, size=4)
     else:
         msg.linear.x = np.nan
@@ -1398,7 +1406,7 @@ def main():
     while not rospy.is_shutdown():
 
         current_ground_truth = global_ground_truth # Fetch the latest ground truth pose available
-        if (global_image is not None) and (current_ground_truth is not None):
+        if (global_image is not None):
             # denoised = cv2.fastNlMeansDenoisingColored(global_image,None,10,10,7,21) # denoising
             hsv = cv2.cvtColor(global_image, cv2.COLOR_BGR2HSV) # convert to HSV
             est, method, processed_image = get_estimate(hsv, count, current_ground_truth)

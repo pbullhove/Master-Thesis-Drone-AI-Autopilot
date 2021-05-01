@@ -8,9 +8,9 @@ class TimerError(Exception):
     """A custom exception used to report errors in use of Timer class"""
 
 class Timer:
-    def __init__(self):
+    def __init__(self, duration=None):
         self._start_time = None
-        self._duration = None
+        self._duration = duration
 
     def start(self, duration):
         """Start a new timer"""

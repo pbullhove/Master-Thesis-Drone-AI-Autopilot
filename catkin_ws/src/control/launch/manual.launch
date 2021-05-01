@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+    <node name="key_teleop" pkg="control" type="key_teleop.py" output="screen"/>
+    <node name="manual_control" pkg="control" type="manual_control.py" output="screen"/>
+    <node name="capture_photo" pkg="control" type="capture_photo.py" output="screen"/>
+</launch>
