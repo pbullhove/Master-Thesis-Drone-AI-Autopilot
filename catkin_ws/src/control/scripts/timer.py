@@ -24,11 +24,7 @@ class Timer:
         """Stop the timer, and report the elapsed time"""
         if self._start_time is None:
             raise TimerError("Timer is not running. Use .start() to start it")
-
-        elapsed_time = (dt.datetime.now() - self._start_time).total_seconds()
         self._start_time = None
-        return elapsed_time
-
 
     def reset(self):
         if self._start_time is None:
