@@ -4,43 +4,70 @@ import numpy as np
 import config as cfg
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, Bool
-
-
+import copy as cp
+import math
 from timer import Timer, TimerError
 
 # Quadcopter States
-STATE_INIT = "STATE_INIT"
-STATE_TAKEOFF = "STATE_TAKEOFF"
-STATE_HOVER = "STATE_HOVER"
-STATE_LANDING = "STATE_LANDING"
-STATE_PHOTOTWIRL = "STATE_PHOTOTWIRL"
-STATE_MOVING = "STATE_MOVING"
-STATE_ERROR = "STATE_ERROR"
-STATE_IDLE = "STATE_IDLE"
+INIT = "INIT"
+TAKEOFF = "TAKEOFF"
+HOVER = "HOVER"
+LANDING = "LANDING"
+PHOTOTWIRL = "PHOTOTWIRL"
+MOVING = "MOVING"
+ERROR = "ERROR"
+IDLE = "IDLE"
 
 empty = Empty()
+takeoff_pose = Twist()
+takeoff_pose.linear.z = cfg.takeoff_height
 desired_pose = Twist()
-desired_pose.linear.z = cfg.takeoff_height
 current_pose = Twist()
-timer = Timer()
+start_pose = Twist()
 error_timer = Timer()
-state = STATE_INIT
-landing_complete = False
-phototwirl_complete = False
+timer = Timer()
+state = INIT
 photos_taken = 0
 received_estimate = False
+landing_complete = False
+mission_step = 0
 
+mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "PHOTOTWIRL", "PHOTOTWIRL", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+mission_plan = ["INIT", "TAKEOFF", "MOVE TO [10,10,10,0,0,90]", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING"]
+mission_plan = ["INIT", "TAKEOFF", "LANDING"]
+
+
+
+def bf_to_wf(bf):
+    yaw = bf.angular.z
+    yaw *= math.pi/180
+    c = math.cos(yaw)
+    s = math.sin(yaw)
+    r = np.array([[c, -s, 0],[s, c, 0],[0,0,1]])
+
+    wf = Twist()
+    xy = np.array([bf.linear.x, bf.linear.y, 1])
+    wf.linear.x, wf.linear.y = np.dot(r,xy)[0:2]
+    wf.linear.z = bf.linear.z
+    wf.angular.x = bf.angular.x
+    wf.angular.y = bf.angular.y
+    wf.angular.z = bf.angular.z
+    return wf
 
 
 #############
 # Callbacks #
 #############
+
+
 def estimate_callback(data):
     global current_pose
     global received_estimate
     #print('received estimate')
     received_estimate = True
-    current_pose = data
+    bf_pose = data
+    current_pose = bf_to_wf(bf_pose)
 
 def landing_complete_callback(data):
     global landing_complete
@@ -67,10 +94,21 @@ def close_enough(pose_a, pose_b):
 
     return ang < cfg.close_enough_ang and euc < cfg.close_enough_euc
 
+def to_twist(array):
+    tw = Twist()
+    tw.linear.x = array[0]
+    tw.linear.y = array[1]
+    tw.linear.z = array[2]
+    tw.angular.x = array[3]
+    tw.angular.y = array[4]
+    tw.angular.z = array[5]
+    return tw
+
+
 
 
 def main():
-    rospy.init_node('complete_mission',anonymous=True)
+    rospy.init_node('mission',anonymous=True)
 
     global received_estimate
     global landing_complete
@@ -79,6 +117,8 @@ def main():
     global photos_taken
     global empty
     global state
+    global mission_step
+    global timer
     pub_desired_pose = rospy.Publisher("/set_point", Twist, queue_size=1)
     pub_start_takeoff = rospy.Publisher("/ardrone/takeoff", Empty, queue_size=10)
     pub_start_automated_landing = rospy.Publisher('/initiate_automated_landing', Empty, queue_size=1)
@@ -86,6 +126,7 @@ def main():
     control_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
     pid_off = rospy.Publisher('/pid_on_off', Bool, queue_size=1)
     rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
+
     rospy.Subscriber('/ardrone/land', Empty, landing_complete_callback)
 
     def init_complete():
@@ -96,66 +137,109 @@ def main():
         e = control_pub.get_num_connections() > 0
         return all([a, b, c, d, e, received_estimate])
 
-    timer.start(1)
-    print('State is:', state)
-    while not rospy.is_shutdown():
-        if state not in [STATE_ERROR, STATE_IDLE, STATE_INIT] and error_timer.is_timeout():
-            state = STATE_ERROR
 
-        if state == STATE_INIT:
-            if init_complete() and timer.is_timeout():
-                error_timer.start(cfg.error_timeout_time)
-                error_timer.reset()
-                state = STATE_TAKEOFF
-                print('switching to: ', state)
-                pub_start_takeoff.publish(empty)
+    def transition_to(new_state):
+        global desired_pose
+        global state
+        global timer
+        global start_pose
+        global photos_taken
+
+        error_timer.reset()
+        state = new_state
+        print('Switching to state: ', state)
+        if state == 'IDLE':
+            landing_complete = False
+        elif state == "ERROR":
+            pass
+        elif state == "INIT":
+            landing_complete = False
+            pass
+        elif state == "TAKEOFF":
+            start_pose = cp.deepcopy(current_pose)
+            desired_pose = cp.deepcopy(takeoff_pose)
+            timer.start(cfg.takeoff_timer_duration)
+            pub_start_takeoff.publish(empty)
+            pub_desired_pose.publish(desired_pose)
+        elif state == "HOVER":
+            timer.start(cfg.hover_duration)
+        elif state.startswith('MOVE TO') or state.startswith('MOVING'):
+            try:
+                setpoint_str = new_state.split('[')[-1].split(']')[0].split(',')
+                setpoint = [float(i) for i in setpoint_str]
+                desired_pose = to_twist(setpoint)
+            except Exception as e:
+                print('faulty move statement. Moving to platform home.')
+                desired_pose = to_twist([0,0,1,0,0,0])
+            finally:
+                state = "MOVING"
                 pub_desired_pose.publish(desired_pose)
+        elif state == "PHOTOTWIRL":
+            photos_taken = 0
+        elif state == "LANDING":
+            start_pose = cp.deepcopy(current_pose)
+            timer.start(cfg.landing_timer_duration)
+            pub_start_automated_landing.publish(empty)
+        else:
+            raise TypeError("State name undefined: No such state exists. ")
 
-        if state == STATE_TAKEOFF:
-            if close_enough(current_pose, desired_pose):
-                error_timer.reset()
-                print('ye close enough')
-                state = STATE_HOVER
-                print('switching to: ', state)
 
-        if state == STATE_HOVER:
-            if close_enough(current_pose, desired_pose):
-                error_timer.reset()
-                try:
-                    timer.start(5)
-                except TimerError as t:
-                    if timer.is_timeout():
-                        timer.stop()
-                        if phototwirl_complete:
-                            state = STATE_LANDING
-                            print('switching to: ', state)
-                            pub_start_automated_landing.publish(empty)
-                        else:
-                            state = STATE_PHOTOTWIRL
-                            print('switching to: ', state)
+    print('State is:', state)
+    error_timer.start(cfg.error_timer_duration)
+    while not rospy.is_shutdown():
+        if state not in [ERROR, IDLE, INIT] and error_timer.is_timeout():
+            state = ERROR
 
-        if state == STATE_PHOTOTWIRL:
+        elif state == INIT:
+            if init_complete():
+                mission_step += 1
+                transition_to(mission_plan[mission_step])
+
+        elif state == TAKEOFF:
             if close_enough(current_pose, desired_pose):
+                timer.stop()
+                mission_step += 1
+                transition_to(mission_plan[mission_step])
+            elif timer.is_timeout() and close_enough(current_pose, start_pose):
+                timer.stop()
+                transition_to("TAKEOFF")
+
+        elif state == HOVER:
+            if close_enough(current_pose, desired_pose) and timer.is_timeout():
+                timer.stop()
+                mission_step += 1
+                transition_to(mission_plan[mission_step])
+
+        elif state == MOVING:
+            if close_enough(current_pose, desired_pose):
+                mission_step += 1
+                transition_to(mission_plan[mission_step])
+
+        elif state == PHOTOTWIRL:
+            if close_enough(current_pose, desired_pose):
+                #print('photo: close enough', current_pose, desired_pose)
                 if photos_taken < 4:
-                    error_timer.reset()
                     pub_save_front_camera_photo.publish(empty)
+                    print('Captured photo at yaw: ', current_pose.angular.z)
                     photos_taken += 1
-                    #desired_pose.angular.z = [135, 45, -45, -135][photos_taken]
                     desired_pose.angular.z = [0, 90, 179, -90, 0][photos_taken]
                     pub_desired_pose.publish(desired_pose)
                 else:
-                    state = STATE_HOVER
-                    print('switching to: ', state)
-                    phototwirl_complete = True
+                    mission_step += 1
+                    transition_to(mission_plan[mission_step])
 
-        if state == STATE_LANDING:
+        elif state == LANDING:
             if landing_complete:
-                error_timer.stop()
-                state = STATE_IDLE
-                print('switching to: ', state)
+                mission_step += 1
+                try:
+                    transition_to(mission_plan[mission_step])
+                except IndexError as e:
+                    transition_to("IDLE")
+            elif timer.is_timeout() and close_enough(current_pose, start_pose):
+                timer.stop()
+                transition_to("LANDING")
 
-        if state == STATE_ERROR:
-            print('switching to: ', state)
+        elif state == ERROR:
             msg = Twist()
             off = Bool()
             off.data = False
