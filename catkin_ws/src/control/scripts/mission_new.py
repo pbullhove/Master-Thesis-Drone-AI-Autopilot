@@ -24,10 +24,8 @@ takeoff_pose.linear.z = cfg.takeoff_height
 desired_pose = Twist()
 current_pose = Twist()
 start_pose = Twist()
-hover_timer = Timer()
-landing_timer = Timer()
 error_timer = Timer()
-takeoff_timer = Timer()
+timer = Timer()
 state = INIT
 photos_taken = 0
 received_estimate = False
@@ -35,6 +33,10 @@ landing_complete = False
 mission_step = 0
 
 mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "PHOTOTWIRL", "PHOTOTWIRL", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+mission_plan = ["INIT", "TAKEOFF", "MOVE TO [10,10,10,0,0,90]", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING"]
+mission_plan = ["INIT", "TAKEOFF", "LANDING"]
+
 
 
 def bf_to_wf(bf):
@@ -116,6 +118,7 @@ def main():
     global empty
     global state
     global mission_step
+    global timer
     pub_desired_pose = rospy.Publisher("/set_point", Twist, queue_size=1)
     pub_start_takeoff = rospy.Publisher("/ardrone/takeoff", Empty, queue_size=10)
     pub_start_automated_landing = rospy.Publisher('/initiate_automated_landing', Empty, queue_size=1)
@@ -138,28 +141,28 @@ def main():
     def transition_to(new_state):
         global desired_pose
         global state
-        global landing_timer
-        global hover_timer
-        global takeoff_timer
+        global timer
         global start_pose
+        global photos_taken
 
         error_timer.reset()
         state = new_state
         print('Switching to state: ', state)
         if state == 'IDLE':
-            pass
+            landing_complete = False
         elif state == "ERROR":
             pass
         elif state == "INIT":
+            landing_complete = False
             pass
         elif state == "TAKEOFF":
             start_pose = cp.deepcopy(current_pose)
             desired_pose = cp.deepcopy(takeoff_pose)
-            takeoff_timer.start(cfg.takeoff_timer_duration)
+            timer.start(cfg.takeoff_timer_duration)
             pub_start_takeoff.publish(empty)
             pub_desired_pose.publish(desired_pose)
         elif state == "HOVER":
-            hover_timer.start(cfg.hover_duration)
+            timer.start(cfg.hover_duration)
         elif state.startswith('MOVE TO') or state.startswith('MOVING'):
             try:
                 setpoint_str = new_state.split('[')[-1].split(']')[0].split(',')
@@ -172,10 +175,10 @@ def main():
                 state = "MOVING"
                 pub_desired_pose.publish(desired_pose)
         elif state == "PHOTOTWIRL":
-            pass
+            photos_taken = 0
         elif state == "LANDING":
             start_pose = cp.deepcopy(current_pose)
-            landing_timer.start(cfg.landing_timer_duration)
+            timer.start(cfg.landing_timer_duration)
             pub_start_automated_landing.publish(empty)
         else:
             raise TypeError("State name undefined: No such state exists. ")
@@ -194,16 +197,16 @@ def main():
 
         elif state == TAKEOFF:
             if close_enough(current_pose, desired_pose):
+                timer.stop()
                 mission_step += 1
                 transition_to(mission_plan[mission_step])
-                takeoff_timer.stop()
-            elif takeoff_timer.is_timeout() and close_enough(current_pose, start_pose):
-                takeoff_timer.stop()
+            elif timer.is_timeout() and close_enough(current_pose, start_pose):
+                timer.stop()
                 transition_to("TAKEOFF")
 
         elif state == HOVER:
-            if close_enough(current_pose, desired_pose) and hover_timer.is_timeout():
-                hover_timer.stop()
+            if close_enough(current_pose, desired_pose) and timer.is_timeout():
+                timer.stop()
                 mission_step += 1
                 transition_to(mission_plan[mission_step])
 
@@ -214,9 +217,10 @@ def main():
 
         elif state == PHOTOTWIRL:
             if close_enough(current_pose, desired_pose):
-                print('photo: close enough', current_pose, desired_pose)
+                #print('photo: close enough', current_pose, desired_pose)
                 if photos_taken < 4:
                     pub_save_front_camera_photo.publish(empty)
+                    print('Captured photo at yaw: ', current_pose.angular.z)
                     photos_taken += 1
                     desired_pose.angular.z = [0, 90, 179, -90, 0][photos_taken]
                     pub_desired_pose.publish(desired_pose)
@@ -230,9 +234,9 @@ def main():
                 try:
                     transition_to(mission_plan[mission_step])
                 except IndexError as e:
-                    transition_to(mission_plan["IDLE"])
-            elif landing_timer.is_timeout() and close_enough(current_pose, start_pose):
-                landing_timer.stop()
+                    transition_to("IDLE")
+            elif timer.is_timeout() and close_enough(current_pose, start_pose):
+                timer.stop()
                 transition_to("LANDING")
 
         elif state == ERROR:
