@@ -132,7 +132,7 @@ def main():
                 state = STATE_TAKEOFF
                 print('switching to: ', state)
                 start_pose = cp.deepcopy(current_pose)
-                takeoff_timer.start(3)
+                takeoff_timer.start(cfg.takeoff_timer_duration)
                 pub_start_takeoff.publish(empty)
                 pub_desired_pose.publish(desired_pose)
 
