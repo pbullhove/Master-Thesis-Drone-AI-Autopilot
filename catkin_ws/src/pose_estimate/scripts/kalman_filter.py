@@ -18,74 +18,105 @@ freq_tcv = 10
 freq_gps = 1
 freq_imu = 100
 
-K_yolo = 0.1*np.eye(6)/freq_yolo
-K_tcv = 10*np.eye(6)/freq_tcv
-K_gps = 0.5*np.eye(3)/freq_gps
-K_imu = np.eye(6)
-K_sonar = 1*np.eye(1)
-
 C_yolo = np.eye(6)
 C_tcv = np.eye(6)
 C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
-C_yaw = np.array([0,0,0,0,0,1])
-C_sonar = np.array([0,0,1,0,0,0])
+C_sonar = np.array([0,0,1,0,0,0]).reshape((1,6))
 
+R_yolo = 10*np.eye(6)
+R_tcv = 1*np.eye(6)
+R_gps = 1*np.eye(3)
+R_sonar = 1*np.eye(1)
 
-def kalman_gain(P_apri,C,R):
-    CT = np.transpose(C)
-    PCT = np.dot(P_apri, CT)
+Q_imu = 0.01*np.eye(6)
+
+P = np.zeros((6,6))
+
+def kalman_gain(P_k,C,R):
+    PCT = np.dot(P_k, C.T)
     IS = R + np.dot(C, PCT)
-    IS_inv = np.linalg.inv(IS)
-    K = np.dot(PCT,IS_inv)
+    try:
+        IS_inv = np.linalg.inv(IS)
+        K = np.dot(PCT,IS_inv)
+    except np.linalg.LinAlgError as e:
+        IS_inv = 1/IS
+        K = PCT*IS_inv
     return K
 
-def yolo_estimate_callback(data):
+def P_post(P, C, K):
+    P = np.dot((np.eye(6) - np.dot(K,C)), P)
+    return P
+
+def P_apri(P, Q):
+    P = P + Q
+    return P
+
+
+def KF_update(R,C,y):
+    global P
     global x_est
+    K = kalman_gain(P, C, R)
+    x_est = x_est + np.dot(K,(y-np.dot(C,x_est)))
+    P = P_post(P,C,K)
+
+def yolo_estimate_callback(data):
+    """ Filters pose estimates from yolo cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.7m above platform, as camera view too close for correct estimates. """
+    global x_est
+    global P
     yolo_estimate = to_array(data)
     if x_est[2] > 0.7:
-        if yolo_estimate[5] != 0.0:
-            x_est = x_est + np.dot(K_yolo,(yolo_estimate - np.dot(C_yolo,x_est)))
+        if yolo_estimate[5] == 0.0: #if no estimate for yaw
+            C = C_gps
+            y = yolo_estimate[0:3]
+            R = R_yolo[0:3,0:3]
         else:
-            x_est[0:3] = x_est[0:3] + np.dot(K_yolo[0:3,0:3],(yolo_estimate[0:3] - np.dot(C_yolo[0:3,0:3],x_est[0:3])))
+            C = C_yolo
+            R = R_yolo
+            y = yolo_estimate
+        KF_update(R,C,y)
 
 
 def tcv_estimate_callback(data):
-    global x_est
+    """ Filters pose estimates from tcv cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.4m above platform, as camera view too close for correct estimates. """
     tcv_estimate = to_array(data)
     if x_est[2] > 0.4:
-        if tcv_estimate[5] != 0.0:
-            x_est = x_est + np.dot(K_tcv,(tcv_estimate - np.dot(C_tcv,x_est)))
+        if tcv_estimate[5] == 0.0: #if no estimate for yaw
+            C = C_gps
+            y = tcv_estimate[0:3]
+            R = R_tcv[0:3,0:3]
         else:
-            x_est[0:3] = x_est[0:3] + np.dot(K_tcv[0:3,0:3],(tcv_estimate[0:3] - np.dot(C_tcv[0:3,0:3],x_est[0:3])))
+            C = C_tcv
+            R = R_tcv
+            y = tcv_estimate
+        KF_update(R,C,y)
+
 
 def gps_callback(data):
-    global x_est
-    gps_estimate = to_array(data)
-    gps_estimate = gps_estimate[0:3]
-    x_est[0:3] = x_est[0:3] + np.dot(K_gps,(gps_estimate - np.dot(C_gps,x_est)))
-
+    """ Filters gps data which is measurement of position in xyz. """
+    gps_measurement = to_array(data)
+    y = gps_measurement[0:3]
+    KF_update(R_gps, C_gps, y)
 
 def sonar_callback(data):
-    global x_est
-    sonar_estimate = data.range
-    if sonar_estimate < 2:
-        x_est[2] = x_est[2] + np.dot(K_sonar,(sonar_estimate - np.dot(C_sonar, x_est)))
+    """ Filters sonar data which is measurement of height. Maximum sonar height is 3m. """
+    y = data.range
+    if y < 2:
+        KF_update(R_sonar, C_sonar, y)
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
 calibration_acc = np.array([0.0, 0.0, 9.81])
-
 vel_min = -0.003
 vel_max = 0.003
-
 acc_min = -0.5
 acc_max = 0.5
-
 ONE_g = 9.8067
-
 prev_imu_yaw = None
 prev_navdata_timestamp = None
 def navdata_callback(data):
+    """ Filters estimates from the IMU data and predicts quadcopter pose. """
     global x_est
+    global P
+    global Q_imu
     global prev_imu_yaw
     global prev_navdata_timestamp
     try:
@@ -116,13 +147,15 @@ def navdata_callback(data):
     delta_pos = rotation.apply(delta_pos)
 
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
-
-    x_est = x_est + np.dot(K_imu,delta_x)
+    x_est = x_est + delta_x
+    P = P_apri(P, Q_imu)
 
     if x_est[5] < -180:
         x_est[5] += 360
     elif x_est[5] > 180:
         x_est[5] -= 360
+
+
 
 
 
