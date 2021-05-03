@@ -35,12 +35,8 @@ P = np.zeros((6,6))
 def kalman_gain(P_k,C,R):
     PCT = np.dot(P_k, C.T)
     IS = R + np.dot(C, PCT)
-    try:
-        IS_inv = np.linalg.inv(IS)
-        K = np.dot(PCT,IS_inv)
-    except np.linalg.LinAlgError as e:
-        IS_inv = 1/IS
-        K = PCT*IS_inv
+    IS_inv = np.linalg.inv(IS)
+    K = np.dot(PCT,IS_inv)
     return K
 
 def P_post(P, C, K):
