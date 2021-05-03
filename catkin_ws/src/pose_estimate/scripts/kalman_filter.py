@@ -42,14 +42,21 @@ def kalman_gain(P_apri,C,R):
 def yolo_estimate_callback(data):
     global x_est
     yolo_estimate = to_array(data)
-    if x_est[2] > 0.7: 
-        x_est = x_est + np.dot(K_yolo,(yolo_estimate - np.dot(C_yolo,x_est)))
+    if x_est[2] > 0.7:
+        if yolo_estimate[5] != 0.0:
+            x_est = x_est + np.dot(K_yolo,(yolo_estimate - np.dot(C_yolo,x_est)))
+        else:
+            x_est[0:3] = x_est[0:3] + np.dot(K_yolo[0:3,0:3],(yolo_estimate[0:3] - np.dot(C_yolo[0:3,0:3],x_est[0:3])))
+
 
 def tcv_estimate_callback(data):
     global x_est
     tcv_estimate = to_array(data)
     if x_est[2] > 0.4:
-        x_est = x_est + np.dot(K_tcv,(tcv_estimate - np.dot(C_tcv,x_est)))
+        if tcv_estimate[5] != 0.0:
+            x_est = x_est + np.dot(K_tcv,(tcv_estimate - np.dot(C_tcv,x_est)))
+        else:
+            x_est[0:3] = x_est[0:3] + np.dot(K_tcv[0:3,0:3],(tcv_estimate[0:3] - np.dot(C_tcv[0:3,0:3],x_est[0:3])))
 
 def gps_callback(data):
     global x_est
@@ -61,11 +68,11 @@ def gps_callback(data):
 def sonar_callback(data):
     global x_est
     sonar_estimate = data.range
-    if sonar_estimate < 2: 
+    if sonar_estimate < 2:
         x_est[2] = x_est[2] + np.dot(K_sonar,(sonar_estimate - np.dot(C_sonar, x_est)))
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
-calibration_acc = np.array([0.0, 0.0, 9.81]) 
+calibration_acc = np.array([0.0, 0.0, 9.81])
 
 vel_min = -0.003
 vel_max = 0.003
@@ -96,7 +103,7 @@ def navdata_callback(data):
 
     vel = np.array([data.vx, data.vy, data.vz])/1000 - calibration_vel
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
-    
+
 
     small_values_filter_val = np.logical_and(np.less(vel, vel_max), np.greater(vel, vel_min))
     small_values_filter_acc = np.logical_and(np.less(acc, acc_max), np.greater(acc, acc_min))
