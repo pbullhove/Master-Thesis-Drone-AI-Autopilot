@@ -91,7 +91,7 @@ def close_enough(pose_a, pose_b):
 
 
 def main():
-    rospy.init_node('complete_mission',anonymous=True)
+    rospy.init_node('mission',anonymous=True)
 
     global received_estimate
     global landing_complete
