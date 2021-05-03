@@ -24,9 +24,9 @@ C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
 C_sonar = np.array([0,0,1,0,0,0]).reshape((1,6))
 
 R_yolo = 10*np.eye(6)
-R_tcv = 1*np.eye(6)
+R_tcv = 0.1*np.eye(6)
 R_gps = 1*np.eye(3)
-R_sonar = 1*np.eye(1)
+R_sonar = 0.1*np.eye(1)
 
 Q_imu = 0.01*np.eye(6)
 
@@ -46,7 +46,6 @@ def P_post(P, C, K):
 def P_apri(P, Q):
     P = P + Q
     return P
-
 
 def KF_update(R,C,y):
     global P
