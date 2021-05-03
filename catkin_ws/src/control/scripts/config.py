@@ -24,8 +24,8 @@ controller_desired_pose = np.array([offset_setpoint_x, offset_setpoint_y, refere
 ##########################
 close_enough_euc = 0.1
 close_enough_ang = 3
-error_timeout_time = 100
 hover_duration = 5
+error_timer_duration = 100
 landing_timer_duration = 10
 takeoff_timer_duration = 3
 error_descent_vel = -0.4
