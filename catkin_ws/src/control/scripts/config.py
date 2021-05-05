@@ -29,7 +29,7 @@ error_timer_duration = 100
 landing_timer_duration = 10
 takeoff_timer_duration = 3
 error_descent_vel = -0.4
-takeoff_height = 3
+takeoff_height = 1
 
 
 ####################

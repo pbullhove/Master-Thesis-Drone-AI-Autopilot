@@ -28,7 +28,7 @@ R_tcv = 0.1*np.eye(6)
 R_gps = 1*np.eye(3)
 R_sonar = 0.1*np.eye(1)
 
-Q_imu = 0.01*np.eye(6)
+Q_imu = 0.001*np.eye(6)
 
 P = np.zeros((6,6))
 
@@ -131,10 +131,10 @@ def navdata_callback(data):
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
 
 
-    small_values_filter_val = np.logical_and(np.less(vel, vel_max), np.greater(vel, vel_min))
-    small_values_filter_acc = np.logical_and(np.less(acc, acc_max), np.greater(acc, acc_min))
-    vel[small_values_filter_val] = 0.0
-    acc[small_values_filter_acc] = 0.0
+    extreme_values_filter_val = np.logical_and(np.less(vel, vel_max), np.greater(vel, vel_min))
+    extreme_values_filter_acc = np.logical_and(np.less(acc, acc_max), np.greater(acc, acc_min))
+    vel[extreme_values_filter_val] = 0.0
+    acc[extreme_values_filter_acc] = 0.0
 
     rotation = R.from_euler('z', -np.radians(delta_yaw))
 
