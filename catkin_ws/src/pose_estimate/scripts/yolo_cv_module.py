@@ -34,6 +34,11 @@ def bb_callback(data):
     global global_bounding_boxes
     global_bounding_boxes = data
 
+filtered_estimate = None
+def filtered_estimate_callback(data):
+    global filtered_estimate
+    filtered_estimate = data
+
 def rad2deg(rad):
     return rad*180/math.pi
 
@@ -120,7 +125,10 @@ def calculate_estimation_error(est, gt):
 
 def find_best_bb_of_class(bounding_boxes, classname):
     matches =  list(item for item in bounding_boxes if item.Class == classname)
-    best = max(matches, key=lambda x: x.probability)
+    try:
+        best = max(matches, key=lambda x: x.probability)
+    except ValueError as e:
+        best = None
     return best
 
 def est_center_of_bb(bb):
@@ -136,25 +144,13 @@ def est_radius_of_bb(bb):
     radius = (width + height)/4
     return radius
 
-def est_rotation(H, Arrow):
-    # rotation defined as positive right of line between H and arrow.
-    hx, hy = est_center_of_bb(H)
-    ax, ay = est_center_of_bb(Arrow)
-
-    hy = IMG_HEIGHT - hy
-    ay = IMG_HEIGHT - ay
-
-    rad = math.atan2(ay-hy, ax-hx)
-    deg = rad2deg(rad)
-    deg *= -1
-    return deg
 
 
-def downscale_H_by_rotation(H, theta):
-    cx, cy = est_center_of_bb(H)
-    theta = theta % 180
-    theta = abs(theta)
+def downscale_H_by_rotation(H):
+    global filtered_estimate
+    theta = abs(filtered_estimate.angular.z)
     rotation = deg2rad(theta)
+    cx, cy = est_center_of_bb(H)
 
     cos = abs(math.cos(rotation))
     sin = abs(math.sin(rotation))
@@ -173,31 +169,59 @@ def downscale_H_by_rotation(H, theta):
 
     return H
 
+def normalize_vector(vector):
+    return vector / np.linalg.norm(vector)
+
+
+def calc_angle_between_vectors(vector_1, vector_2):
+    v1_x = vector_1[0]
+    v1_y = vector_1[1]
+
+    v2_x = vector_2[0]
+    v2_y = vector_2[1]
+
+    return np.arctan2( v1_x*v2_y - v1_y*v2_x, v1_x*v2_x + v1_y*v2_y)
+
+def est_rotation(center, Arrow):
+    if center == [None, None]:
+        return None
+    arrow_vector = np.array(np.array(est_center_of_bb(Arrow)) - np.array(center))
+    arrow_unit_vector = normalize_vector(arrow_vector)
+    arrow_unit_vector_yx = np.array([arrow_unit_vector[1], arrow_unit_vector[0]])
+    rad = calc_angle_between_vectors(arrow_unit_vector_yx, np.array([0,1]))
+    deg = rad2deg(rad)
+    return deg
+
+
+def is_good_bb(bb):
+    bb_w = bb.xmax - bb.xmin
+    bb_h = bb.ymax - bb.ymin
+    if 0.2 > bb_w/bb_h > 5:
+        return False
+    else:
+        return True
+
 
 def estimate_center_rotation_and_radius(bounding_boxes):
     H_bb_radius_scale_factor = 2.60
     # rospy.loginfo(bounding_boxes)
+    bounding_boxes = [bb for bb in bounding_boxes if is_good_bb(bb)]
     classes = list(item.Class for item in bounding_boxes)
     # rospy.loginfo(classes)
     center = [None, None]
     radius = None
     rotation = None
 
+    Helipad = find_best_bb_of_class(bounding_boxes, 'Helipad')
+    H = find_best_bb_of_class(bounding_boxes, 'H')
+    Arrow = find_best_bb_of_class(bounding_boxes, 'Arrow')
 
-    if 'H' in classes:
-        H = find_best_bb_of_class(bounding_boxes, 'H')
-        if 'Arrow' in classes:
-            Arrow = find_best_bb_of_class(bounding_boxes, 'Arrow')
-            rotation = est_rotation(H, Arrow)
-            H = downscale_H_by_rotation(H, rotation)
-        center = est_center_of_bb(H)
-        radius = H_bb_radius_scale_factor*est_radius_of_bb(H)
 
-    else:
-        if 'Helipad' in classes:
-            Helipad = find_best_bb_of_class(bounding_boxes, 'Helipad')
-            center = est_center_of_bb(Helipad)
-            radius = est_radius_of_bb(Helipad)
+    if Helipad != None:
+        center = est_center_of_bb(Helipad)
+        radius = 0.97*est_radius_of_bb(Helipad)
+        if Arrow != None:
+            rotation = est_rotation(center, Arrow)
 
     rospy.loginfo('\ncenter: %s \nradius %s\nrotation: %s', center, radius, rotation)
     return center, radius, rotation
@@ -208,7 +232,7 @@ def main():
 
     rospy.Subscriber('/drone_ground_truth', Twist, gt_callback)
     rospy.Subscriber('/darknet_ros/bounding_boxes', BoundingBoxes, bb_callback)
-
+    rospy.Subscriber('/filtered_estimate', Twist, filtered_estimate_callback)
     pub_est = rospy.Publisher("/estimate/yolo_estimate", Twist, queue_size=10)
     pub_ground_truth = rospy.Publisher('/drone_ground_truth', Twist, queue_size=10)
     pub_error = rospy.Publisher("/estimate_error/yolo_error", Twist, queue_size=10)
@@ -235,9 +259,10 @@ def main():
             previous_bounding_boxes = current_bounding_boxes
             center_px, radius_px, rotation = estimate_center_rotation_and_radius(current_bounding_boxes.bounding_boxes)
             # rospy.loginfo('center_px: %s,  radius_px: %s,  rotation: %s', center_px, radius_px, rotation)
-            current_pose_estimate = transform_pixel_position_to_world_coordinates(center_px, radius_px)
-            current_pose_estimate.angular.z = rotation if rotation is not None else current_pose_estimate.angular.z
-            pub_est.publish(current_pose_estimate)
+            if all(center_px) and radius_px:
+                current_pose_estimate = transform_pixel_position_to_world_coordinates(center_px, radius_px)
+                current_pose_estimate.angular.z = rotation if rotation is not None else 0.0
+                pub_est.publish(current_pose_estimate)
 
         current_error = calculate_estimation_error(current_pose_estimate, current_ground_truth)
         if current_error is not None:
