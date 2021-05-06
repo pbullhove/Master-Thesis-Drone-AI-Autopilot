@@ -28,7 +28,7 @@ R_tcv = 0.1*np.eye(6)
 R_gps = 1*np.eye(3)
 R_sonar = 0.1*np.eye(1)
 
-Q_imu = 0.001*np.eye(6)
+Q_imu = 0.001*np.diag([1, 1, 1, 0, 0, 1])
 
 P = np.zeros((6,6))
 
