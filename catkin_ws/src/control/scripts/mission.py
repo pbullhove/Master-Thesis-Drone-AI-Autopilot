@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import numpy as np
+import sys
 import config as cfg
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, Bool
@@ -32,14 +33,24 @@ received_estimate = False
 landing_complete = False
 mission_step = 0
 
-mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "PHOTOTWIRL", "PHOTOTWIRL", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
-mission_plan = ["INIT", "TAKEOFF", "MOVE TO [10,10,10,0,0,90]", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING"]
-mission_plan = ["INIT", "TAKEOFF", "LANDING"]
-mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "LANDING", "IDLE"]
-mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
-mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [2,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
 
 
+args = sys.argv
+if len(args) == 1:
+    mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+else:
+    if args[-1].lower() == "thl":
+        mission_plan = ["INIT", "TAKEOFF","HOVER", "LANDING"]
+    elif args[-1].lower() == "thhhl":
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "LANDING", "IDLE"]
+    elif args[-1].lower() == "tmovefarl":
+        mission_plan = ["INIT", "TAKEOFF", "MOVE TO [10,10,10,0,0,90]", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING"]
+    elif args[-1].lower() == "photomission_here":
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "PHOTOTWIRL", "PHOTOTWIRL", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+    elif args[-1].lower() == "photomission_there":
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [2,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+    else:
+        raise("unknown mission")
 
 def bf_to_wf(bf):
     yaw = bf.angular.z
