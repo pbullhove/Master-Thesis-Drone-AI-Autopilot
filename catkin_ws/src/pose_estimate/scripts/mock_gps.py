@@ -2,6 +2,7 @@
 import rospy
 import time
 import numpy as np
+import help_functions as hlp
 
 from geometry_msgs.msg import Twist
 
@@ -11,7 +12,7 @@ from geometry_msgs.msg import Twist
 ground_truth = None
 def gt_callback(data):
     global ground_truth
-    ground_truth = data
+    ground_truth = hlp.twist_bf_to_wf(data)
 
 
 def generate_random_errors(standard_deviation):
