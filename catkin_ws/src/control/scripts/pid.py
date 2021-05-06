@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import numpy as np
+import help_functions as hlp
 from geometry_msgs.msg import Twist, Pose, Point
 from sensor_msgs.msg import Image
 from std_msgs.msg import Empty, Bool
@@ -25,16 +26,6 @@ bf_setpoint = None
 
 
 
-def wf_to_bf(wf,yaw):
-    yaw *= math.pi/180
-    c = math.cos(yaw)
-    s = math.sin(yaw)
-    r_inv = np.array([[c, s, 0],[-s, c, 0],[0,0,1]])
-
-    wf = np.array([wf[0], wf[1], 1])
-    bf = np.dot(r_inv,wf)
-    return bf[0:2]
-
 def estimate_callback(data):
     global est_relative_position
     global wf_setpoint
@@ -44,14 +35,14 @@ def estimate_callback(data):
     est_relative_position = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
     try: #rotate setpint to match body frame given new yaw
-        if abs(est_relative_position[5] - prev_setpoint_yaw) > 2:
-            bf_setpoint[0:2] = wf_to_bf(wf_setpoint[0:2], est_relative_position[5])
+        if abs(est_relative_position[5] - prev_setpoint_yaw) > 0.5:
+            bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2], est_relative_position[5])
             prev_setpoint_yaw = data.angular.z
     except TypeError as e: # no prev setpoint yaw
         prev_setpoint_yaw = data.angular.z
         pass
 
-    
+
 
 
 def pid_on_off_callback(data):
@@ -66,7 +57,7 @@ freeze_integral = np.array([False]*6)
 
 wf_setpoint = cfg.controller_desired_pose
 bf_setpoint = [i for i in wf_setpoint]
-bf_setpoint[0:2] = wf_to_bf(wf_setpoint, 0)
+bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint, 0)
 
 # Kp = np.array([Kp_x] + [Kp_y] + [Kp_position_z] + [0.0]*2 + [-Kp_orientation])
 Kp = np.array([cfg.Kp_position_x] + [cfg.Kp_position_y] + [cfg.Kp_position_z] + [0.0]*2 + [cfg.Kp_orientation])
@@ -85,10 +76,10 @@ def set_point_callback(data):
     wf_setpoint[2] = data.linear.z
     wf_setpoint[5] = data.angular.z
     try:
-        bf_setpoint[0:2] = wf_to_bf(wf_setpoint[0:2],est_relative_position[5])
+        bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2],est_relative_position[5])
         bf_setpoint[2] = data.linear.z
         bf_setpoint[5] = data.angular.z
-    except TypeError as e: 
+    except TypeError as e:
         bf_setpoint = [i for i in wf_setpoint]
 
 def take_off_callback(data):
