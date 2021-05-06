@@ -43,7 +43,7 @@ else:
         mission_plan = ["INIT", "TAKEOFF","HOVER", "LANDING"]
     elif args[-1].lower() == "thhhl":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "LANDING", "IDLE"]
-    elif args[-1].lower() == "tmovefarl":
+    elif args[-1].lower() == "movefar":
         mission_plan = ["INIT", "TAKEOFF", "MOVE TO [10,10,10,0,0,90]", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING"]
     elif args[-1].lower() == "photomission_here":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "PHOTOTWIRL", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
@@ -51,6 +51,8 @@ else:
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [2,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
     elif args[-1].lower() == "moveabit":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [1,1,2,0,0,0]", "HOVER", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
+    elif args[-1].lower() == "move":
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,5,2,0,0,0]", "HOVER", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
     else:
         raise("unknown mission")
 
