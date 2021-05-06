@@ -17,7 +17,7 @@ import config as cfg
 
 
 gt_relative_position = None
-est_relative_position = None
+est_state = None
 prev_time = None
 pid_on_off = True
 prev_setpoint_yaw = None
@@ -27,16 +27,16 @@ bf_setpoint = None
 
 
 def estimate_callback(data):
-    global est_relative_position
+    global est_state
     global wf_setpoint
     global bf_setpoint
     global prev_setpoint_yaw
 
-    est_relative_position = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
+    est_state = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
     try: #rotate setpint to match body frame given new yaw
-        if abs(est_relative_position[5] - prev_setpoint_yaw) > 0.5:
-            bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2], est_relative_position[5])
+        if abs(est_state[5] - prev_setpoint_yaw) > 0.5:
+            bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2], est_state[5])
             prev_setpoint_yaw = data.angular.z
     except TypeError as e: # no prev setpoint yaw
         prev_setpoint_yaw = data.angular.z
@@ -76,7 +76,7 @@ def set_point_callback(data):
     wf_setpoint[2] = data.linear.z
     wf_setpoint[5] = data.angular.z
     try:
-        bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2],est_relative_position[5])
+        bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2],est_state[5])
         bf_setpoint[2] = data.linear.z
         bf_setpoint[5] = data.angular.z
     except TypeError as e:
@@ -184,9 +184,9 @@ def main():
     rate = rospy.Rate(100) # Hz
     while not rospy.is_shutdown():
 
-        relative_position = est_relative_position
+        relative_position = est_state
         # if use_estimate:
-        #     relative_position = est_relative_position
+        #     relative_position = est_state
         # else:
         #     relative_position = gt_relative_position
 
