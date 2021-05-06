@@ -18,6 +18,14 @@ def twist_to_array(twist):
     arr = np.array([twist.linear.x, twist.linear.y, twist.linear.z, twist.angular.x, twist.angular.y, twist.angular.z])
     return arr
 
+def angleFromTo(ang, min, max):
+    if ang < min:
+        ang += 360
+    if ang > max:
+        ang -= 360
+    return ang
+
+
 
 def wf_to_bf(wf,yaw):
     yaw *= math.pi/180

@@ -141,10 +141,11 @@ def navdata_callback(data):
     rotation = R.from_euler('z', -np.radians(delta_yaw))
 
     delta_pos = delta_t*vel + 0.5*acc*delta_t**2
-    delta_pos = rotation.apply(delta_pos)
 
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
     x_est = x_est + delta_x
+
+    x_est[0:3] = rotation.apply(x_est[0:3])
     P = P_apri(P, Q_imu)
     x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
 
