@@ -46,9 +46,11 @@ else:
     elif args[-1].lower() == "tmovefarl":
         mission_plan = ["INIT", "TAKEOFF", "MOVE TO [10,10,10,0,0,90]", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING"]
     elif args[-1].lower() == "photomission_here":
-        mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "PHOTOTWIRL", "PHOTOTWIRL", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "PHOTOTWIRL", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
     elif args[-1].lower() == "photomission_there":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [2,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+    elif args[-1].lower() == "moveabit":
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [1,1,2,0,0,0]", "HOVER", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
     else:
         raise("unknown mission")
 
