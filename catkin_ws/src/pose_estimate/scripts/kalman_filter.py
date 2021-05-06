@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import numpy as np
+import help_functions as hlp
 from geometry_msgs.msg import Twist
 from ardrone_autonomy.msg import Navdata
 from sensor_msgs.msg import Imu, Range
@@ -116,6 +117,7 @@ def navdata_callback(data):
     global prev_navdata_timestamp
     try:
         delta_yaw = data.rotZ - prev_imu_yaw
+        delta_yaw = hlp.angleFromTo(delta_yaw, -180,180)
         now = datetime.now()
         delta_t = (now - prev_navdata_timestamp).total_seconds()
         prev_navdata_timestamp = now
@@ -144,11 +146,7 @@ def navdata_callback(data):
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
     x_est = x_est + delta_x
     P = P_apri(P, Q_imu)
-
-    if x_est[5] < -180:
-        x_est[5] += 360
-    elif x_est[5] > 180:
-        x_est[5] -= 360
+    x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
 
 
 
