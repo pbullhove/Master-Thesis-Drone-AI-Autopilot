@@ -30,6 +30,15 @@ def wf_to_bf(wf,yaw):
     return bf[0:2]
 
 
+def angleFromTo(ang, min, max):
+    if ang < min:
+        ang += 360
+    if ang > max:
+        ang -= 360
+    return ang
+
+
+
 def bf_to_wf(bf,yaw):
     yaw *= math.pi/180
     c = math.cos(yaw)
