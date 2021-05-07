@@ -182,15 +182,26 @@ def calc_angle_between_vectors(vector_1, vector_2):
 
     return np.arctan2( v1_x*v2_y - v1_y*v2_x, v1_x*v2_x + v1_y*v2_y)
 
+
+
+
 def est_rotation(center, Arrow):
-    if center == [None, None]:
-        return None
-    arrow_vector = np.array(np.array(est_center_of_bb(Arrow)) - np.array(center))
-    arrow_unit_vector = normalize_vector(arrow_vector)
-    arrow_unit_vector_yx = np.array([arrow_unit_vector[1], arrow_unit_vector[0]])
-    rad = calc_angle_between_vectors(arrow_unit_vector_yx, np.array([0,1]))
-    deg = rad2deg(rad)
-    return deg
+    # if center == [None, None]:
+    #     return None
+    # arrow_vector = np.array(np.array(est_center_of_bb(Arrow)) - np.array(center))
+    # arrow_unit_vector = normalize_vector(arrow_vector)
+    # arrow_unit_vector_yx = np.array([arrow_unit_vector[1], arrow_unit_vector[0]])
+    # rad = calc_angle_between_vectors(arrow_unit_vector_yx, np.array([0,1]))
+    # deg = rad2deg(rad)
+    print("center: ", center)
+    print("arrow: ", Arrow)
+
+    dy = center[1] - Arrow[1]
+    dx = Arrow[0] - center[0]
+    rads = math.atan2(dy,dx)
+    degs = rads*180 / math.pi
+    degs *= -1
+    return degs
 
 
 def is_good_bb(bb):
@@ -221,7 +232,7 @@ def estimate_center_rotation_and_radius(bounding_boxes):
         center = est_center_of_bb(Helipad)
         radius = 0.97*est_radius_of_bb(Helipad)
         if Arrow != None:
-            rotation = est_rotation(center, Arrow)
+            rotation = est_rotation(center, est_center_of_bb(Arrow))
 
     rospy.loginfo('\ncenter: %s \nradius %s\nrotation: %s', center, radius, rotation)
     return center, radius, rotation
