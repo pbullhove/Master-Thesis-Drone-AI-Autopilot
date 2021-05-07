@@ -960,8 +960,8 @@ def est_rotation(center, Arrow):
     # arrow_unit_vector_yx = np.array([arrow_unit_vector[1], arrow_unit_vector[0]])
     # rad = calc_angle_between_vectors(arrow_unit_vector_yx, np.array([0,1]))
     # deg = rad2deg(rad)
-    print("center: ", center)
-    print("arrow: ", Arrow)
+    # print("center: ", center)
+    # print("arrow: ", Arrow)
 
     dy = center[0] - Arrow[0]
     dx = Arrow[1] - center[1]
