@@ -52,7 +52,14 @@ def KF_update(R,C,y):
     global P
     global x_est
     K = kalman_gain(P, C, R)
-    x_est = x_est + np.dot(K,(y-np.dot(C,x_est)))
+    innov = y-np.dot(C,x_est)
+    try: # for jumping between yaw = 179, -179
+        innov[5] = hlp.angleFromTo(innov[5], -180, 180)
+    except IndexError as e:
+        pass
+    update = np.dot(K, innov)
+    x_est = x_est + update
+    x_est[5] = hlp.angleFromTo(x_est[5], -180, 180)
     P = P_post(P,C,K)
 
 def yolo_estimate_callback(data):
@@ -76,7 +83,7 @@ def tcv_estimate_callback(data):
     """ Filters pose estimates from tcv cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.4m above platform, as camera view too close for correct estimates. """
     tcv_estimate = to_array(data)
     if x_est[2] > 0.4:
-        if tcv_estimate[5] == 0.0: #if no estimate for yaw
+        if tcv_estimate[5] == 0.0 or tcv_estimate[5] == -0.0: #if no estimate for yaw
             C = C_gps
             y = tcv_estimate[0:3]
             R = R_tcv[0:3,0:3]
@@ -148,7 +155,10 @@ def navdata_callback(data):
     x_est[0:3] = rotation.apply(x_est[0:3])
     P = P_apri(P, Q_imu)
     x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
-
+    # if x_est[5] < -180:
+    #     x_est[5] += 360
+    # elif x_est[5] > 180:
+    #     x_est[5] -= 360
 
 
 
