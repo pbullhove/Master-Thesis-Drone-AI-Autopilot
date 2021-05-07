@@ -22,25 +22,25 @@ prev_time = None
 pid_on_off = True
 prev_setpoint_yaw = None
 wf_setpoint = None
-# bf_setpoint = None
+bf_setpoint = None
 
 
 
 def estimate_callback(data):
     global est_state
     global wf_setpoint
-    # global bf_setpoint
+    global bf_setpoint
     global prev_setpoint_yaw
 
     est_state = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
-    # try: #rotate setpint to match body frame given new yaw
-    #     # if abs(est_state[5] - prev_setpoint_yaw) > 0.5:
-    #     bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2], est_state[5])
-    #     prev_setpoint_yaw = data.angular.z
-    # except TypeError as e: # no prev setpoint yaw
-    #     prev_setpoint_yaw = data.angular.z
-    #     pass
+    try: #rotate setpint to match body frame given new yaw
+        # if abs(est_state[5] - prev_setpoint_yaw) > 0.5:
+        bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2], est_state[5])
+        prev_setpoint_yaw = data.angular.z
+    except TypeError as e: # no prev setpoint yaw
+        prev_setpoint_yaw = data.angular.z
+        pass
 
 
 
@@ -99,10 +99,12 @@ def controller(state):
     curr_time = rospy.get_time()
     time_interval = curr_time - prev_time
     prev_time = curr_time
-    bf_setpoint = [i for i in wf_setpoint]
-    bf_setpoint[0:2] = hlp.wf_to_bf(bf_setpoint[0:2],est_state[5])
+    # bf_setpoint = [i for i in wf_setpoint]
+    # bf_setpoint[0:2] = hlp.wf_to_bf(bf_setpoint[0:2],est_state[5])
     error = bf_setpoint - state
-    error[5] = hlp.angleFromTo(error[5], -180, 180)
+    #error[5] = hlp.angleFromTo(error[5], -180, 180)
+    if error[5] < -180:
+        error[5] += 360
     error_integral += (time_interval * (error_prev + error)/2.0)*np.invert(freeze_integral)
     error_derivative = error - error_prev
     error_prev = error
