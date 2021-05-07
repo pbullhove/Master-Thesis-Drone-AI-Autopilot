@@ -186,8 +186,8 @@ def main():
     global x_est
     rospy.init_node('combined_filter', anonymous=True)
 
-    rospy.Subscriber('/estimate/yolo_estimate', Twist, yolo_estimate_callback)
-    rospy.Subscriber('/estimate/tcv_estimate', Twist, tcv_estimate_callback)
+    rospy.Subscriber('/estimate/dnnCV', Twist, yolo_estimate_callback)
+    rospy.Subscriber('/estimate/tcv', Twist, tcv_estimate_callback)
     rospy.Subscriber('/mock_gps', Twist, gps_callback)
     rospy.Subscriber('/sonar_height', Range, sonar_callback)
     rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)

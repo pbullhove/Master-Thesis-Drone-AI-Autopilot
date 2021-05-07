@@ -1403,7 +1403,7 @@ def main():
     pub_est_error_corners = rospy.Publisher("/estimate_error/corners", Twist, queue_size=10)
 
 
-    pub_est = rospy.Publisher("/estimate/tcv_estimate", Twist, queue_size=10)
+    pub_est = rospy.Publisher("/estimate/tcv", Twist, queue_size=10)
     pub_est_method = rospy.Publisher("/estimate_method", Int8, queue_size=10)
 
     est_msg = Twist()

@@ -239,15 +239,15 @@ def estimate_center_rotation_and_radius(bounding_boxes):
 
 
 def main():
-    rospy.init_node('yolo_cv_module', anonymous=True)
+    rospy.init_node('dnn_CV_module', anonymous=True)
 
     rospy.Subscriber('/drone_ground_truth', Twist, gt_callback)
     rospy.Subscriber('/darknet_ros/bounding_boxes', BoundingBoxes, bb_callback)
     rospy.Subscriber('/filtered_estimate', Twist, filtered_estimate_callback)
-    pub_est = rospy.Publisher("/estimate/yolo_estimate", Twist, queue_size=10)
+    pub_est = rospy.Publisher("/estimate/dnnCV", Twist, queue_size=10)
     pub_ground_truth = rospy.Publisher('/drone_ground_truth', Twist, queue_size=10)
-    pub_error = rospy.Publisher("/estimate_error/yolo_error", Twist, queue_size=10)
-    pub_center_radius = rospy.Publisher("/results/yolo_error", Twist, queue_size=10)
+    pub_error = rospy.Publisher("/estimate_error/dnn_error", Twist, queue_size=10)
+    pub_center_radius = rospy.Publisher("/results/dnn_error", Twist, queue_size=10)
 
     est_pose_msg = Twist()
 
