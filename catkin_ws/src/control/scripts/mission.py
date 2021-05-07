@@ -36,22 +36,23 @@ mission_step = 0
 
 
 args = sys.argv
+print(args)
 if len(args) == 1:
     mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,0,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
 else:
-    if args[-1].lower() == "thl":
+    if args[1].lower() == "thl":
         mission_plan = ["INIT", "TAKEOFF","HOVER", "LANDING"]
-    elif args[-1].lower() == "thhhl":
+    elif args[1].lower() == "thhhl":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "LANDING", "IDLE"]
-    elif args[-1].lower() == "movefar":
+    elif args[1].lower() == "movefar":
         mission_plan = ["INIT", "TAKEOFF", "MOVE TO [10,10,10,0,0,0]", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING"]
-    elif args[-1].lower() == "photomission_here":
+    elif args[1].lower() == "photomission_here":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "PHOTOTWIRL", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
-    elif args[-1].lower() == "photomission_there":
+    elif args[1].lower() == "photomission_there":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,5,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
-    elif args[-1].lower() == "moveabit":
+    elif args[1].lower() == "moveabit":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [1,1,2,0,0,0]", "HOVER", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
-    elif args[-1].lower() == "move":
+    elif args[1].lower() == "move":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,5,2,0,0,0]", "HOVER", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
     else:
         raise("unknown mission")
