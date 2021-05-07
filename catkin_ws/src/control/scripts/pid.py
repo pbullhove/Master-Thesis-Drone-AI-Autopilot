@@ -136,7 +136,7 @@ def controller(state):
 def main():
     global prev_time
     global bf_setpoint
-    error_state = False
+    out_of_bounds_error = False
     rospy.init_node('pid_controller', anonymous=True)
 
     use_estimate = True
@@ -188,15 +188,16 @@ def main():
 
         state = est_state
 
-        if state is not None and not error:
-            if abs(state.linear.z) > cfg.z_upper_limit or abs(state.linear.x) > cfg.x_upper_limit or abs(state.linear.y) > cfg.y_upper_limit:
-                error = True
+        if state is not None and not out_of_bounds_error:
+            if abs(state[0]) > cfg.x_upper_limit or abs(state[1]) > cfg.y_upper_limit or abs(state[2]) > cfg.z_upper_limit:
+                print('OUT OF BOUNDS AT STATE: ', state)
+                out_of_bounds_error = True
 
-        if error:
+        if out_of_bounds_error:
             msg = Twist()
             msg.linear.x = 0
             msg.linear.y = 0
-            msg.linear.z = -cfg.error_descent_vel
+            msg.linear.z = cfg.error_descent_vel
             msg.angular.z = 0
             control_pub.publish(msg)
         elif (state is not None) and pid_on_off:
