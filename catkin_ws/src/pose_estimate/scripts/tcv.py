@@ -952,13 +952,25 @@ def evaluate_ellipse(hsv):
     return center_px, radius_px, angle
 
 
-def angle_between_points(center, arrow):
-    dy = center[0] - arrow[0]
-    dx = arrow[1] - center[1]
+def est_rotation(center, Arrow):
+    # if center == [None, None]:
+    #     return None
+    # arrow_vector = np.array(np.array(est_center_of_bb(Arrow)) - np.array(center))
+    # arrow_unit_vector = normalize_vector(arrow_vector)
+    # arrow_unit_vector_yx = np.array([arrow_unit_vector[1], arrow_unit_vector[0]])
+    # rad = calc_angle_between_vectors(arrow_unit_vector_yx, np.array([0,1]))
+    # deg = rad2deg(rad)
+    print("center: ", center)
+    print("arrow: ", Arrow)
+
+    dy = center[0] - Arrow[0]
+    dx = Arrow[1] - center[1]
     rads = math.atan2(dy,dx)
-    degs = rads*180 / math.pi
-    degs *= -1
-    return degs
+    # degs = rads*180 / math.pi
+    rads *= -1
+    return rads
+
+
 
 def evaluate_arrow(hsv, hsv_inside_green):
     """ Use the arrow to find:
@@ -971,11 +983,13 @@ def evaluate_arrow(hsv, hsv_inside_green):
     if (center_px is not None) and (arrowhead_px is not None):
 
         arrow_vector = np.array(arrowhead_px - center_px)
-        # arrow_unit_vector = normalize_vector(arrow_vector)
-        # ref_vector = np.array([0,1])
-        # angle = calc_angle_between_vectors(arrow_vector, ref_vector)
-        angle = angle_between_points(center_px, arrowhead_px)
+        arrow_unit_vector = normalize_vector(arrow_vector)
+        ref_vector = np.array([0,1])
 
+
+
+        # angle = calc_angle_between_vectors(arrow_vector, ref_vector)
+        angle = est_rotation(center_px, arrowhead_px)
         arrow_length_px = np.linalg.norm(arrow_vector)
         # Use known relation between the real radius and the real arrow length
         # to find the radius length in pixels
@@ -1089,7 +1103,6 @@ def evaluate_inner_corners(hsv):
 
             neg_x_axis = np.array([-1,0])
             angle = calc_angle_between_vectors(forward_unit_vector, neg_x_axis)
-
             hsv_canvas_inner_corners = hsv.copy()
             draw_dot(hsv_canvas_inner_corners, center, HSV_LIGHT_ORANGE_COLOR)
             hsv_save_image(hsv_canvas_inner_corners, "4_canvas_inner_corners")
@@ -1162,6 +1175,7 @@ def get_estimate(hsv, count, current_ground_truth):
         msg.linear.z = est_ellipse_z
         msg.angular.z = est_ellipse_angle
         pub_est_ellipse.publish(msg)
+
         try:
             msg.linear.x = est_ellipse_x - current_ground_truth[0]
             msg.linear.y = est_ellipse_y - current_ground_truth[1]
@@ -1170,7 +1184,6 @@ def get_estimate(hsv, count, current_ground_truth):
             pub_est_error_ellipse.publish(msg)
         except TypeError as e:
             pass
-
         draw_dot(global_hsv_canvas_all, center_px, HSV_BLUE_COLOR, size=10)
     else:
         msg.linear.x = np.nan
@@ -1203,7 +1216,6 @@ def get_estimate(hsv, count, current_ground_truth):
             pub_est_error_arrow.publish(msg)
         except TypeError as e:
             pass
-
         draw_dot(global_hsv_canvas_all, center_px, HSV_RED_COLOR, size=7)
     else:
         msg.linear.x = np.nan
@@ -1221,7 +1233,7 @@ def get_estimate(hsv, count, current_ground_truth):
         center_px, radius_length_px, angle_rad = center_px_from_inner_corners, radius_px_length_from_inner_corners, angle_from_inner_corners
         est_corners_x, est_corners_y, est_corners_z = calculate_position(center_px, radius_length_px)
         est_corners_angle = np.degrees(angle_rad)
-
+        est_corners_angle = 0.0
         if est_corners_angle < -90:
             est_corners_angle += 180
         elif est_corners_angle > 90:
@@ -1241,7 +1253,6 @@ def get_estimate(hsv, count, current_ground_truth):
             pub_est_error_corners.publish(msg)
         except TypeError as e:
             pass
-
         draw_dot(global_hsv_canvas_all, center_px, HSV_YELLOW_COLOR, size=4)
     else:
         msg.linear.x = np.nan
@@ -1254,7 +1265,11 @@ def get_estimate(hsv, count, current_ground_truth):
     # Choose method #
     if corners_available and green_toughing_edge:
         method_of_choice = 3
-        est_x, est_y, est_z, est_angle = est_corners_x, est_corners_y, est_corners_z, est_corners_angle
+        est_x, est_y, est_z = est_corners_x, est_corners_y, est_corners_z
+        if arrow_available:
+            est_angle = est_arrow_angle
+        else:
+            est_angle = 0.0
     elif arrow_available:
         method_of_choice = 2
         est_x, est_y, est_z, est_angle = est_arrow_x, est_arrow_y, est_arrow_z, est_arrow_angle
@@ -1439,6 +1454,7 @@ def main():
 
 
         rate.sleep()
+
 
 if __name__ == '__main__':
     main()
