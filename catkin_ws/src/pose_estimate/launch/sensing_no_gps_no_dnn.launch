@@ -2,6 +2,6 @@
 
 <launch>
     <node name="ground_truth" pkg="pose_estimate" type="ground_truth.py" output="screen" />
-    <node name="cv_module" pkg="pose_estimate" type="cv_module.py" output="screen" />
+    <node name="tcv" pkg="pose_estimate" type="tcv.py" output="screen" />
     <node name="kalman_filter" pkg="pose_estimate" type="kalman_filter.py" output="screen" />
 </launch>
