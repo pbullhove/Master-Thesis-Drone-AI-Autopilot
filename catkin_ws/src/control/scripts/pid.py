@@ -16,7 +16,7 @@ import config as cfg
 
 
 
-gt_relative_position = None
+gt_state = None
 est_state = None
 prev_time = None
 pid_on_off = True
@@ -136,7 +136,7 @@ def controller(state):
 def main():
     global prev_time
     global bf_setpoint
-
+    error_state = False
     rospy.init_node('pid_controller', anonymous=True)
 
     use_estimate = True
@@ -186,14 +186,22 @@ def main():
     rate = rospy.Rate(100) # Hz
     while not rospy.is_shutdown():
 
-        relative_position = est_state
-        # if use_estimate:
-        #     relative_position = est_state
-        # else:
-        #     relative_position = gt_relative_position
+        state = est_state
 
-        if (relative_position is not None) and pid_on_off:
-            actuation = controller(relative_position)
+        if state is not None and not error:
+            if abs(state.linear.z) > cfg.z_upper_limit or abs(state.linear.x) > cfg.x_upper_limit or abs(state.linear.y) > cfg.y_upper_limit:
+                error = True
+
+        if error:
+            msg = Twist()
+            msg.linear.x = 0
+            msg.linear.y = 0
+            msg.linear.z = -cfg.error_descent_vel
+            msg.angular.z = 0
+            control_pub.publish(msg)
+        elif (state is not None) and pid_on_off:
+
+            actuation = controller(state)
             msg = Twist()
             msg.linear.x = actuation[0]
             msg.linear.y = actuation[1]
@@ -211,13 +219,13 @@ def main():
             reference_msg.angular.z = bf_setpoint[5]
             reference_pub.publish(reference_msg)
 
-            # pose_msg.linear.x = gt_relative_position[0]
-            # pose_msg.linear.y = gt_relative_position[1]
-            # pose_msg.linear.z = gt_relative_position[2]
+            # pose_msg.linear.x = gt_state[0]
+            # pose_msg.linear.y = gt_state[1]
+            # pose_msg.linear.z = gt_state[2]
             # pose_msg.angular.x = 0
             # pose_msg.angular.y = 0
 
-            # yaw = -np.degrees(gt_relative_position[5]) - 90
+            # yaw = -np.degrees(gt_state[5]) - 90
             # if yaw < -180:
             #     gt_yaw = 360 + yaw
             # else:

@@ -25,12 +25,16 @@ controller_desired_pose = np.array([offset_setpoint_x, offset_setpoint_y, refere
 close_enough_euc = 0.1
 close_enough_ang = 3
 hover_duration = 5
-error_timer_duration = 100
 landing_timer_duration = 10
 takeoff_timer_duration = 3
-error_descent_vel = -0.4
-takeoff_height = 1
+takeoff_height = 2
 
+# ABORT MISSION PARAMETERS
+x_upper_limit = 15
+y_upper_limit = 15
+z_upper_limit = 7
+error_timer_duration = 30
+error_descent_vel = -0.4
 
 ####################
 #  PID parameters  #
