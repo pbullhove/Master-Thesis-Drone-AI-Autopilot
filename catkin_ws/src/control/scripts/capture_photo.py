@@ -7,12 +7,15 @@ from sensor_msgs.msg import Image
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import os
-
+from datetime import datetime
 
 bridge = CvBridge()
-
-global_image_save_path = os.path.join('master_thesis','images','mission_photos')
-
+try:
+    os.chdir('../../../..')
+    os.chdir('images/mission_photos')
+    print(os.getcwd())
+except Exception as e:
+    pass
 front_counter = 0
 bottom_counter = 0
 
@@ -52,7 +55,7 @@ def bottom_image_callback(data):
         except CvBridgeError as e:
             rospy.loginfo(e)
 
-        finally: 
+        finally:
                 bottom_capture_request = False
 
 
@@ -69,7 +72,7 @@ def take_still_photo_bottom_callback(data):
 def hsv_save_image(image, label='image'):
     global global_image_save_path
     label = label + '.png'
-    path = os.path.join(global_image_save_path, label)
+    path = label
     if not cv2.imwrite(path, image):
         raise Exception('Could not save image at location: ', path, 'image is:', image)
 
