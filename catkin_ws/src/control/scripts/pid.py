@@ -8,6 +8,8 @@ control the quadcopter to the desired position and orientation.
 Subscribes to
     - /filtered_estimate:  quadcopter pose_estimate
     - /set_point: quadcopter desired pose
+    - /pid_on_off: toggle pid control
+    - /ardrone/takeoff: for internal calculations of control signals
 Publishes to
     - /cmd_vel: quadcopter control signal velocities
 """
