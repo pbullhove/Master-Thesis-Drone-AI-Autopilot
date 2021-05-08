@@ -1,4 +1,17 @@
 #!/usr/bin/env python
+
+
+"""
+PID controller module for use in quadcopter missions, for calculating control signals which will
+control the quadcopter to the desired position and orientation.
+
+Subscribes to
+    - /filtered_estimate:  quadcopter pose_estimate
+    - /set_point: quadcopter desired pose
+Publishes to
+    - /cmd_vel: quadcopter control signal velocities
+"""
+
 import rospy
 import numpy as np
 import help_functions as hlp
