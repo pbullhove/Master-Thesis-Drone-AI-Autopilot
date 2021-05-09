@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+"""
+
+
+
+"""
 import rospy
 import numpy as np
 import help_functions as hlp
@@ -8,16 +13,8 @@ from sensor_msgs.msg import Imu, Range
 from nav_msgs.msg import Odometry
 from datetime import datetime
 from scipy.spatial.transform import Rotation as R
-
 import time
-
 import config as cfg
-
-
-freq_yolo = 30
-freq_tcv = 10
-freq_gps = 1
-freq_imu = 100
 
 C_yolo = np.eye(6)
 C_tcv = np.eye(6)
@@ -66,7 +63,7 @@ def yolo_estimate_callback(data):
     """ Filters pose estimates from yolo cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.7m above platform, as camera view too close for correct estimates. """
     global x_est
     global P
-    yolo_estimate = to_array(data)
+    yolo_estimate = hlp.to_array(data)
     if x_est[2] > 0.7:
         if yolo_estimate[5] == 0.0: #if no estimate for yaw
             C = C_gps
@@ -81,7 +78,7 @@ def yolo_estimate_callback(data):
 
 def tcv_estimate_callback(data):
     """ Filters pose estimates from tcv cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.4m above platform, as camera view too close for correct estimates. """
-    tcv_estimate = to_array(data)
+    tcv_estimate = hlp.to_array(data)
     if x_est[2] > 0.4:
         if tcv_estimate[5] == 0.0 or tcv_estimate[5] == -0.0: #if no estimate for yaw
             C = C_gps
@@ -96,7 +93,7 @@ def tcv_estimate_callback(data):
 
 def gps_callback(data):
     """ Filters gps data which is measurement of position in xyz. """
-    gps_measurement = to_array(data)
+    gps_measurement = hlp.to_array(data)
     y = gps_measurement[0:3]
     KF_update(R_gps, C_gps, y)
 
@@ -155,29 +152,6 @@ def navdata_callback(data):
     x_est[0:3] = rotation.apply(x_est[0:3])
     P = P_apri(P, Q_imu)
     x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
-    # if x_est[5] < -180:
-    #     x_est[5] += 360
-    # elif x_est[5] > 180:
-    #     x_est[5] -= 360
-
-
-
-
-
-
-def to_Twist(array):
-    tw = Twist()
-    tw.linear.x = array[0]
-    tw.linear.y = array[1]
-    tw.linear.z = array[2]
-    tw.angular.x = array[3]
-    tw.angular.y = array[4]
-    tw.angular.z = array[5]
-    return tw
-
-def to_array(twist):
-    arr = np.array([twist.linear.x, twist.linear.y, twist.linear.z, twist.angular.x, twist.angular.y, twist.angular.z])
-    return arr
 
 
 x_est = np.zeros(6)
@@ -200,7 +174,7 @@ def main():
     rate = rospy.Rate(30) # Hz
     while not rospy.is_shutdown():
         x_est = [round(i,5) for i in x_est]
-        msg = to_Twist(x_est)
+        msg = hlp.to_Twist(x_est)
         filtered_estimate_pub.publish(msg)
         rate.sleep()
 

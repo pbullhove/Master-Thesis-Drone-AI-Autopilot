@@ -5,6 +5,7 @@ import numpy as np
 from geometry_msgs.msg import Twist
 
 def to_Twist(array):
+    """ Transforms a 6d array of pose into a pose Twist """
     tw = Twist()
     tw.linear.x = array[0]
     tw.linear.y = array[1]
@@ -15,10 +16,16 @@ def to_Twist(array):
     return tw
 
 def twist_to_array(twist):
+    """ Transforms a pose Twist into 6d array of pose. """
     arr = np.array([twist.linear.x, twist.linear.y, twist.linear.z, twist.angular.x, twist.angular.y, twist.angular.z])
     return arr
 
 def angleFromTo(ang, min, max):
+    """
+    Angle, min, max: Degrees
+    Moves ang into the desired range of coordinates.
+    Mostly used for yaw -> [-180, 180]
+    """
     if ang < min:
         ang += 360
     if ang > max:
@@ -26,8 +33,17 @@ def angleFromTo(ang, min, max):
     return ang
 
 
-
 def wf_to_bf(wf,yaw):
+    """
+    Transforms world frame pose into body frame pose. This is by performing a -yaw rotation about the
+    z-axis of the x and y coordinates. z, pitch, roll, yaw unchanged.
+    input:
+        wf: array[6] float - pose in world frame
+        yaw: float - Degrees. Best estimated yaw angle for transformation.
+
+    output:
+        bf: array[6] float - pose in body frame.
+    """
     yaw *= math.pi/180
     c = math.cos(yaw)
     s = math.sin(yaw)
@@ -39,6 +55,16 @@ def wf_to_bf(wf,yaw):
 
 
 def bf_to_wf(bf,yaw):
+    """
+    Transforms body frame pose into world frame pose. This is by performing a yaw rotation about the
+    z-axis of the x and y coordinates. z, pitch, roll, yaw unchanged.
+    input:
+        bf: array[6] float - pose in body frame
+        yaw: float - Degrees. Best estimated yaw angle for transformation.
+
+    output:
+        wf: array[6] float - pose in world frame.
+    """
     yaw *= math.pi/180
     c = math.cos(yaw)
     s = math.sin(yaw)
@@ -50,6 +76,16 @@ def bf_to_wf(bf,yaw):
 
 
 def twist_bf_to_wf(bf, yaw=None):
+    """
+    Transforms body frame pose into world frame pose. This is by performing a yaw rotation about the
+    z-axis of the x and y coordinates. z, pitch, roll, yaw unchanged.
+    input:
+        bf: Twist() - pose in body frame
+        yaw: float - Degrees. Best estimated yaw angle for transformation.
+
+    output:
+        wf: Twist - pose in world frame.
+    """
     if yaw == None:
         yaw = bf.angular.z
     yaw *= math.pi/180
@@ -67,6 +103,16 @@ def twist_bf_to_wf(bf, yaw=None):
     return wf
 
 def twist_wf_to_bf(wf, yaw=None):
+    """
+    Transforms world frame pose into world frame pose. This is by performing a -yaw rotation about the
+    z-axis of the x and y coordinates. z, pitch, roll, yaw unchanged.
+    input:
+        bf: Twist() - pose in world frame
+        yaw: float - Degrees. Best estimated yaw angle for transformation.
+
+    output:
+        wf: Twist - pose in body frame.
+    """
     if yaw == None:
         yaw = wf.angular.z
     yaw *= math.pi/180

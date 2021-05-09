@@ -3,6 +3,12 @@
 """
 This module transforms the ground truth
 from world coordinates into body coordinates of the quadcopter
+
+Subscribes to:
+    /ground_truth/state: Odometry - world frame ground truth quadcopter Odometry
+
+Publishes to:
+    /drone_ground_truth: Twist - body frame ground truth quadcopter pose
 """
 
 import rospy
@@ -45,12 +51,12 @@ def gt_callback(data):
     # Rotation of the body frame wrt. the world frame
     r_0_2 = R.from_quat([q_x, q_y, q_z, q_w])
     r_2_0 = r_0_2.inv()
-    
+
 
     ##########
     # 0 -> 1 #
     ##########
-    
+
     # Translation of the world frame to landing frame wrt. the world frame
     offset_x = 1.0
     offset_y = 0.0
@@ -66,7 +72,7 @@ def gt_callback(data):
     # 2 -> 1 #
     ##########
     # Transformation of the body frame to landing frame wrt. the body frame
-    
+
     # Translation of the landing frame to bdy frame wrt. the landing frame
     d_1_2 = d_0_2 - d_0_1
 
@@ -116,7 +122,7 @@ def main():
     pub_ground_truth = rospy.Publisher('/drone_ground_truth', Twist, queue_size=10)
 
     rospy.loginfo("Starting ground truth module")
-       
+
     rospy.spin()
 
 if __name__ == '__main__':

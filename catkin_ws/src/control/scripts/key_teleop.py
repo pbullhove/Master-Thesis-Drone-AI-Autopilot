@@ -10,6 +10,36 @@
 # Modified by Thomas Sundvoll
 # Modified further by Peter Bull Hove
 
+"""
+Module for quadcopter control using keyboard commands.
+Requires control/manual_control.py running.
+
+-- Commands --
+t: takeoff and start flight
+l: land
+L: automated landing
+Arrows: linear flight
+z: fly up
+x: hover in the vertical axis.
+c: fly downwards
+v: rotate one way
+b: rotate the other ways
+1: take still photo bottom
+2: take still photo front
+d: start/stop data collection   (requres data collection module running)
+p: toggle pid_on_off    (control/pid.py) 
+
+Subscribes to:
+    None.
+Publishes to:
+    /key_vel: Twist - the commanded velocities from keyboard commands.
+    /take_still_photo_front: Empty - capture photo from front camera and save to file
+    /take_still_photo_bottom: Empty - capture photo from bottom camera and save to file
+    /initiate_automated_landing: Empty - start automated landing from control/automated_landing.py
+    /start_data_collection: Empty - start data collection from utilities/data_collection.py
+    /controller_switch: Bool  - Toggle pid controller on and off.
+"""
+
 import curses
 import math
 

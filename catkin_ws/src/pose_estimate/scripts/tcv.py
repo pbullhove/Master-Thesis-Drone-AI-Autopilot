@@ -2,7 +2,6 @@
 
 """
 This "single" version incorporates all estimates from the three different methods into one.
-It does not filter the signal, but leaves this for another module.
 
 """
 

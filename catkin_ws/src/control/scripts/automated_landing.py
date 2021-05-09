@@ -1,8 +1,18 @@
 #!/usr/bin/env python
 
 """
-'Triangle'-button on controller to start the mission
-'publish setpoints to '/set_point', Twist'
+Automated landing module for performing a safe automated landing with the Parrot AR2.0 Quadcopter.
+Is a state machine implementation. Start this in close proximity to the landing platform.
+
+Subscribes to:
+    /filtered_estimate: Twist - current estimated pose.
+    /initiate_automated_landing: Empty - for starting automated landing.
+Publishes to:
+    /set_point: Twist - for communicating setpoints to the PID controller
+    /ardrone/land: Empty - for communicating to the ardrone to drop down and cut motors.
+
+When using PS4 controller:
+    'Triangle'-button on controller to start the mission
 """
 
 import rospy
@@ -13,54 +23,30 @@ from std_msgs.msg import Empty, Bool
 
 import time
 
-est_relative_position = None
+est_pose = None
 
 # States of the quadcopter
-S_INIT          = 0
-S_PRE_LANDING   = 1
-S_LANDING       = 2
-S_LANDED        = 3
-
-STATE_TEXT = [
-    "INIT",
-    "PRE LANDING",
-    "LANDING",
-    "LANDED"
-]
+S_INIT          = "INIT"
+S_PRE_LANDING   = "PRE LANDING"
+S_LANDING       = "LANDING"
+S_LANDED        = "LANDED"
 
 global_state = S_INIT
 
 global_mission = np.array([
-    [0.0, 0.0, 2.0],
-    [0.0, 0.0, 2.0],
+    [0.0, 0.0, 1.0],
+    [0.0, 0.0, 1.0],
     [0.0, 0.0, 0.2]
 ])
 
-
-# d_x = 2
-# d_y = 3
-# global_mission = np.array([
-#     [0.0, 0.0, 1.0],
-#     [d_x, 0.0, 1.0],
-#     [d_x, d_y, 1.0],
-#     [-d_x, d_y, 1.0],
-#     [-d_x, -d_y, 1.0],
-#     [0.0, -d_y, 1.0],
-#     [0.0, 0.0, 1.0],
-#     [0.0, 0.0, 0.9],
-#     [0.0, 0.0, 0.8],
-#     [0.0, 0.0, 0.7],
-#     [0.0, 0.0, 0.6],
-#     [0.0, 0.0, 0.5]
-# ])
 
 
 #############
 # Callbacks #
 #############
 def estimate_callback(data):
-    global est_relative_position
-    est_relative_position = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
+    global est_pose
+    est_pose = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
 
 def initiate_landing_callback(data):
@@ -70,14 +56,14 @@ def initiate_landing_callback(data):
     global global_state
 
     received_start_time = rospy.get_time()
-    position_at_start_time = est_relative_position
+    position_at_start_time = est_pose
     global_mission[0] = position_at_start_time[:3]
     global_state = S_PRE_LANDING
 
 #######################################
 
 def print_state(state):
-    rospy.loginfo("State: " + STATE_TEXT[state])
+    rospy.loginfo("State: " + state)
 
 
 def get_distance(point_a, point_b):
@@ -87,7 +73,6 @@ def get_distance(point_a, point_b):
 
 
 def is_position_close_to_goal(curr_position, goal, margin):
-    # rospy.loginfo(str(np.abs(curr_position[:3] - goal)))
     return np.all(np.abs(curr_position[:3] - goal) < margin)
 
 
@@ -103,28 +88,19 @@ def main():
     global global_state
     rospy.init_node('automated_landing', anonymous=True)
 
-    #rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
-
     rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
     rospy.Subscriber('/initiate_automated_landing', Empty, initiate_landing_callback)
-
     pub_set_point = rospy.Publisher("/set_point", Twist, queue_size=1)
     pub_land = rospy.Publisher("/ardrone/land", Empty, queue_size=10)
 
     set_point_msg = Twist()
-
     rospy.loginfo("Starting automated landing module")
     print_state(global_state)
 
     publish_rate = 10 # Hz
-
     mission_speed = 0.4 # m/s
     distance_margin = 0.01 # m
     distance_speed_reduction_margin = 1.0 # m
-
-    # mission_speed = 0.6 # m/s
-    # distance_margin = 0.01 # m
-    # distance_speed_reduction_margin = 0.2 # m
 
     margin = np.array([distance_margin]*3)
     pre_mission_time = 1 # second(s)
@@ -133,7 +109,7 @@ def main():
     while not rospy.is_shutdown():
         use_cv = True
 
-        current_position = est_relative_position
+        current_position = est_pose
 
         if global_state == S_INIT:
             pass

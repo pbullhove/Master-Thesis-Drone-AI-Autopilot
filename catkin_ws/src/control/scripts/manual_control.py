@@ -1,5 +1,16 @@
 #!/usr/bin/env python
 
+"""
+Module for controlling the quadcopter from key_teleop.
+TODO: integrate this into key_teleop instead of having this as a separate file.
+
+Subscribes to:
+    /key_vel: Twist - desired quadcopter velocity from key_teleop, as well as land and takeoff commands.
+Publishes to:
+    /cmd_vel: Twist - quadcopter control
+    /ardrone/takeoff: Empty - initate quadcopter takeoff.
+    /ardrone/land: Empty - initiate quadcopter landing.
+"""
 import rospy
 from std_msgs.msg import String, Empty, Float32
 from geometry_msgs.msg import Twist
@@ -36,7 +47,7 @@ def main():
             zero_msg_count += 1
         else:
             zero_msg_count = 0
-        
+
         if zero_msg_count <= 1:
             # Only send control message if something new on the input
 
