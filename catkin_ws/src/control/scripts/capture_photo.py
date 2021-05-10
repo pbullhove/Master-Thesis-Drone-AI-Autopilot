@@ -26,11 +26,12 @@ from datetime import datetime
 
 bridge = CvBridge()
 try:
-    os.chdir('../../../..')
+    os.chdir('../../..')
     os.chdir('images/mission_photos')
     print(os.getcwd())
 except Exception as e:
-    print('Catpture photo.py: could not go to correct place for image photos. ')
+    print('Capture photo.py: could not go to correct place for image photos. ')
+    print(os.getcwd())
     pass
 front_counter = 0
 bottom_counter = 0
@@ -105,11 +106,10 @@ def hsv_save_image(image, label='image'):
     """
     Saves image to current location: check that by os.getcdw()
     """
-    global global_image_save_path
     label = label + '.png'
     path = label
     if not cv2.imwrite(path, image):
-        raise Exception('Could not save image at location: ', path, 'image is:', image)
+        raise Exception('Could not save image at location: ', path)
 
 
 def main():
