@@ -42,7 +42,7 @@ def main():
 
     sigma = 0.02
 
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(2)
     while not rospy.is_shutdown():
         if ground_truth is not None:
             ex,ey,ez = generate_random_errors(sigma)
