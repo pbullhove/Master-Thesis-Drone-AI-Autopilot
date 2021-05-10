@@ -27,7 +27,7 @@ b: rotate the other ways
 1: take still photo bottom
 2: take still photo front
 d: start/stop data collection   (requres data collection module running)
-p: toggle pid_on_off    (control/pid.py) 
+p: toggle pid_on_off    (control/pid.py)
 
 Subscribes to:
     None.
@@ -216,7 +216,7 @@ class SimpleKeyTeleop():
     def __init__(self, interface):
         self._interface = interface
         self._pub_cmd = rospy.Publisher('key_vel', Twist)
-        self._pub_ctr_switch = rospy.Publisher('/controller_switch', Bool)
+        self._pub_ctr_switch = rospy.Publisher('/pid_on_off', Bool)
         self._pub_take_still_photo_front = rospy.Publisher('/take_still_photo_front', Empty)
         self._pub_take_still_photo_bottom = rospy.Publisher('/take_still_photo_bottom', Empty)
         self._pub_initiate_automated_landing = rospy.Publisher('/initiate_automated_landing', Empty)
