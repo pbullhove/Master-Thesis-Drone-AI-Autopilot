@@ -30,6 +30,7 @@ try:
     os.chdir('images/mission_photos')
     print(os.getcwd())
 except Exception as e:
+    print('Catpture photo.py: could not go to correct place for image photos. ')
     pass
 front_counter = 0
 bottom_counter = 0

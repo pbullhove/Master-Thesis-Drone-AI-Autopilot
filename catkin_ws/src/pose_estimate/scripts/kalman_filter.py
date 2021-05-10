@@ -6,7 +6,6 @@
 """
 import rospy
 import numpy as np
-import help_functions as hlp
 from geometry_msgs.msg import Twist
 from ardrone_autonomy.msg import Navdata
 from sensor_msgs.msg import Imu, Range
@@ -15,6 +14,9 @@ from datetime import datetime
 from scipy.spatial.transform import Rotation as R
 import time
 import config as cfg
+import sys
+sys.path.append('../utilities')
+import help_functions as hlp
 
 C_yolo = np.eye(6)
 C_tcv = np.eye(6)
@@ -63,7 +65,7 @@ def yolo_estimate_callback(data):
     """ Filters pose estimates from yolo cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.7m above platform, as camera view too close for correct estimates. """
     global x_est
     global P
-    yolo_estimate = hlp.to_array(data)
+    yolo_estimate = hlp.twist_to_array(data)
     if x_est[2] > 0.7:
         if yolo_estimate[5] == 0.0: #if no estimate for yaw
             C = C_gps
@@ -78,7 +80,7 @@ def yolo_estimate_callback(data):
 
 def tcv_estimate_callback(data):
     """ Filters pose estimates from tcv cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.4m above platform, as camera view too close for correct estimates. """
-    tcv_estimate = hlp.to_array(data)
+    tcv_estimate = hlp.twist_to_array(data)
     if x_est[2] > 0.4:
         if tcv_estimate[5] == 0.0 or tcv_estimate[5] == -0.0: #if no estimate for yaw
             C = C_gps
@@ -93,7 +95,7 @@ def tcv_estimate_callback(data):
 
 def gps_callback(data):
     """ Filters gps data which is measurement of position in xyz. """
-    gps_measurement = hlp.to_array(data)
+    gps_measurement = hlp.twist_to_array(data)
     y = gps_measurement[0:3]
     KF_update(R_gps, C_gps, y)
 

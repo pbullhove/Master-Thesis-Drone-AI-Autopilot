@@ -4,6 +4,12 @@ import rospy
 import numpy as np
 from geometry_msgs.msg import Twist
 
+
+def twist_to_array(twist):
+    """ Transforms a pose Twist into 6d array of pose. """
+    arr = np.array([twist.linear.x, twist.linear.y, twist.linear.z, twist.angular.x, twist.angular.y, twist.angular.z])
+    return arr
+
 def to_Twist(array):
     """ Transforms a 6d array of pose into a pose Twist """
     tw = Twist()
@@ -19,18 +25,6 @@ def twist_to_array(twist):
     """ Transforms a pose Twist into 6d array of pose. """
     arr = np.array([twist.linear.x, twist.linear.y, twist.linear.z, twist.angular.x, twist.angular.y, twist.angular.z])
     return arr
-
-def angleFromTo(ang, min, max):
-    """
-    Angle, min, max: Degrees
-    Moves ang into the desired range of coordinates.
-    Mostly used for yaw -> [-180, 180]
-    """
-    if ang < min:
-        ang += 360
-    if ang > max:
-        ang -= 360
-    return ang
 
 
 def wf_to_bf(wf,yaw):
@@ -54,6 +48,20 @@ def wf_to_bf(wf,yaw):
     return bf[0:2]
 
 
+def angleFromTo(ang, min, max):
+    """
+    Angle, min, max: Degrees
+    Moves ang into the desired range of coordinates.
+    Mostly used for yaw -> [-180, 180]
+    """
+    if ang < min:
+        ang += 360
+    if ang > max:
+        ang -= 360
+    return ang
+
+
+
 def bf_to_wf(bf,yaw):
     """
     Transforms body frame pose into world frame pose. This is by performing a yaw rotation about the
@@ -72,10 +80,10 @@ def bf_to_wf(bf,yaw):
 
     bf = np.array([bf[0], bf[1], 1])
     wf = np.dot(r,bf)
-    return wf[0:2]
+    return bf[0:2]
 
 
-def twist_bf_to_wf(bf, yaw=None):
+def twist_bf_to_wf(bf):
     """
     Transforms body frame pose into world frame pose. This is by performing a yaw rotation about the
     z-axis of the x and y coordinates. z, pitch, roll, yaw unchanged.
@@ -86,8 +94,7 @@ def twist_bf_to_wf(bf, yaw=None):
     output:
         wf: Twist - pose in world frame.
     """
-    if yaw == None:
-        yaw = bf.angular.z
+    yaw = bf.angular.z
     yaw *= math.pi/180
     c = math.cos(yaw)
     s = math.sin(yaw)
@@ -102,7 +109,7 @@ def twist_bf_to_wf(bf, yaw=None):
     wf.angular.z = bf.angular.z
     return wf
 
-def twist_wf_to_bf(wf, yaw=None):
+def twist_wf_to_bf(wf):
     """
     Transforms world frame pose into world frame pose. This is by performing a -yaw rotation about the
     z-axis of the x and y coordinates. z, pitch, roll, yaw unchanged.
@@ -113,8 +120,7 @@ def twist_wf_to_bf(wf, yaw=None):
     output:
         wf: Twist - pose in body frame.
     """
-    if yaw == None:
-        yaw = wf.angular.z
+    yaw = wf.angular.z
     yaw *= math.pi/180
     c = math.cos(yaw)
     s = math.sin(yaw)
@@ -122,9 +128,9 @@ def twist_wf_to_bf(wf, yaw=None):
 
     bf = Twist()
     xy = np.array([wf.linear.x, wf.linear.y, 1])
-    bf.linear.x, bf.linear.y = np.dot(r_inv,xy)[0:2]
+    bf.linear.x, bf.linear.y = np.dot(r,xy)[0:2]
     bf.linear.z = wf.linear.z
     bf.angular.x = wf.angular.x
     bf.angular.y = wf.angular.y
     bf.angular.z = wf.angular.z
-    return bf
+    return wf

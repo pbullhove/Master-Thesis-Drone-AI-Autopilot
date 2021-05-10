@@ -14,8 +14,10 @@ Publishes to:
 import rospy
 import time
 import numpy as np
-import help_functions as hlp
 from geometry_msgs.msg import Twist
+import sys
+sys.path.append('../utilities')
+import help_functions as hlp
 
 #############
 # Callbacks #
