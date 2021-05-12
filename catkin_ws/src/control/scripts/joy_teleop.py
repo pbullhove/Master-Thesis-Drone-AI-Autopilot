@@ -1,5 +1,9 @@
 #! /usr/bin/env python
 
+"""
+Module for manual control using PS4-controller for quadcopter control.
+"""
+
 import rospy
 from std_msgs.msg import String, Empty, Bool
 from geometry_msgs.msg import Twist
@@ -44,13 +48,13 @@ def teleop_callback(data):
         pub_take_off.publish(Empty())
 
     if buttons[1]:
-        # "Circle"-button -> Land 
+        # "Circle"-button -> Land
         pub_land.publish(Empty())
 
     if buttons[2]:
         # "Triangle"-botton -> Initiate mission and start data collection
         pub_initiate_mission.publish(Empty())
-    
+
     if buttons[3]:
         # "Square"-button -> Take still photo and stop data collection
         pub_take_still_photo.publish(Empty())
@@ -72,7 +76,7 @@ def teleop_callback(data):
 
     if buttons[5]:
         # "R1"-button -> Emergency landing
-        pub_emergency.publish(Empty())      
+        pub_emergency.publish(Empty())
 
     if buttons[10]:
         # "Start"-button -> Initiate automated landing
@@ -144,7 +148,7 @@ def main():
 
     rospy.init_node('joy_teleop', anonymous=True)
     rospy.loginfo("Joystick teleoperation ready")
-    
+
 
     rospy.loginfo("Manual control on")
     pub_pid_on_off.publish(Bool(False))

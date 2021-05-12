@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+"""
+Config settings and parameters for control package
+"""
+
 import numpy as np
 import math
 

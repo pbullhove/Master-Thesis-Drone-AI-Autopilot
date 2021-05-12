@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+"""
+
+
+
+"""
+
+
 import rospy
 
 from geometry_msgs.msg import Twist
@@ -44,40 +51,6 @@ def rad2deg(rad):
 
 def deg2rad(deg):
     return deg*math.pi/180
-
-def get_test_bounding_boxes():
-
-    Helipad = BoundingBox()
-    Helipad.probability = 0.5
-    Helipad.xmin = 312
-    Helipad.ymin = 120
-    Helipad.xmax = 337
-    Helipad.ymax = 148
-    Helipad.id = 2
-    Helipad.Class = "Helipad"
-
-    H = BoundingBox()
-    H.probability = 0.5
-    H.xmin = 320
-    H.ymin = 128
-    H.xmax = 330
-    H.ymax = 138
-    H.id = 0
-    H.Class = "H"
-
-    Arrow = BoundingBox()
-    Arrow.probability = 0.5
-    Arrow.xmin = 333
-    Arrow.ymin = 140
-    Arrow.xmax = 335
-    Arrow.ymax = 143
-    Arrow.id = 1
-    Arrow.Class = "Arrow"
-
-    bbs = BoundingBoxes()
-    bbs.bounding_boxes = [Helipad, H, Arrow]
-    return bbs
-
 
 def transform_pixel_position_to_world_coordinates(center_px, radius_px):
     center_px = (center_px[1], center_px[0]) # such that x = height, y = width for this
@@ -145,57 +118,27 @@ def est_radius_of_bb(bb):
     return radius
 
 
-
-def downscale_H_by_rotation(H):
-    global filtered_estimate
-    theta = abs(filtered_estimate.angular.z)
-    rotation = deg2rad(theta)
-    cx, cy = est_center_of_bb(H)
-
-    cos = abs(math.cos(rotation))
-    sin = abs(math.sin(rotation))
-    scaling_width = (cos*2 + sin*3)/2
-    scaling_height = (sin*2 + cos*3)/3
-
-    width = H.xmax - H.xmin
-    height = H.ymax - H.ymin
-    new_width = width * scaling_width
-    new_height = height * scaling_height
-
-    H.xmin = cx - int(new_width/2)
-    H.ymin = cy - int(new_height/2)
-    H.xmax = cx + int(new_width/2)
-    H.ymax = cy + int(new_height/2)
-
-    return H
-
 def normalize_vector(vector):
     return vector / np.linalg.norm(vector)
 
 
-def calc_angle_between_vectors(vector_1, vector_2):
-    v1_x = vector_1[0]
-    v1_y = vector_1[1]
-
-    v2_x = vector_2[0]
-    v2_y = vector_2[1]
-
-    return np.arctan2( v1_x*v2_y - v1_y*v2_x, v1_x*v2_x + v1_y*v2_y)
-
-
-
 
 def est_rotation(center, Arrow):
-    # if center == [None, None]:
-    #     return None
-    # arrow_vector = np.array(np.array(est_center_of_bb(Arrow)) - np.array(center))
-    # arrow_unit_vector = normalize_vector(arrow_vector)
-    # arrow_unit_vector_yx = np.array([arrow_unit_vector[1], arrow_unit_vector[0]])
-    # rad = calc_angle_between_vectors(arrow_unit_vector_yx, np.array([0,1]))
-    # deg = rad2deg(rad)
-    print("center: ", center)
-    print("arrow: ", Arrow)
+    """
+    Estimates the quadcopter yaw rotation given the estimated center of the Helipad
+    as well as the estimated center of the arrow. Quadcopter rotation is defined
+    with respect to world frame coordinate axis.
+    yaw=0 is when arrow is pointing at three-o-clock, and positively increasing when
+        arrow is rotating the same direction as clock arm movement.
+    y is defined 0 in top of the image, and increases positively downwards.
 
+    input:
+        center: np.array[2] - [x,y] pixel coordinates
+        Arrow: np.array[2] - [x,y] pixel coordinates
+
+    output:
+        degs: float - estimated yaw angle of the quadcopter
+    """
     dy = center[1] - Arrow[1]
     dx = Arrow[0] - center[0]
     rads = math.atan2(dy,dx)
@@ -205,6 +148,17 @@ def est_rotation(center, Arrow):
 
 
 def is_good_bb(bb):
+    """
+    Returns true for bounding boxes that are within the desired proportions,
+    them being relatively square.
+    Bbs that have one side being 5 times or longer than the other are discarded.
+
+    input:
+        bb: yolo bounding box
+
+    output.
+        discard or not: bool
+    """
     bb_w = bb.xmax - bb.xmin
     bb_h = bb.ymax - bb.ymin
     if 0.2 > bb_w/bb_h > 5:
@@ -214,6 +168,20 @@ def is_good_bb(bb):
 
 
 def estimate_center_rotation_and_radius(bounding_boxes):
+    """
+    Function which estimates the center and radius of the helipad in the camera
+    frame, using YOLO BoundingBox of predicted locations of Helipad and Arrow from the camera frame.
+    Estimates radius as 0.97*sidelength of Helipad BoundingBox.
+    Estimates center as center of Helipad BoundingBox
+    Estimates yaw using est_rotation() with center and center of Arrow BoundingBox.
+
+    input:
+        bounding_boxes: [n]bouding_box - list of yolo bouding_boxes
+    output:
+        center: [int, int] - estimated pixel coordinates of center of landing platform.
+        radius: int - estimated pixel length of radius of landing platform
+        rotation: float degrees - estimated yaw of quadcopter
+    """
     H_bb_radius_scale_factor = 2.60
     # rospy.loginfo(bounding_boxes)
     bounding_boxes = [bb for bb in bounding_boxes if is_good_bb(bb)]
@@ -227,14 +195,11 @@ def estimate_center_rotation_and_radius(bounding_boxes):
     H = find_best_bb_of_class(bounding_boxes, 'H')
     Arrow = find_best_bb_of_class(bounding_boxes, 'Arrow')
 
-
     if Helipad != None:
         center = est_center_of_bb(Helipad)
         radius = 0.97*est_radius_of_bb(Helipad)
         if Arrow != None:
             rotation = est_rotation(center, est_center_of_bb(Arrow))
-
-    rospy.loginfo('\ncenter: %s \nradius %s\nrotation: %s', center, radius, rotation)
     return center, radius, rotation
 
 

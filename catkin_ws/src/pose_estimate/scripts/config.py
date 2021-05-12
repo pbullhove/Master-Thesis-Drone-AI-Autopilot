@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+
+"""
+Config settings for pose_estimate package 
+"""
 import numpy as np
 import math
 

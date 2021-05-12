@@ -9,6 +9,10 @@ import copy as cp
 import math
 from timer import Timer, TimerError
 
+import sys
+sys.path.append('../utilities')
+import help_functions as hlp
+
 # Quadcopter States
 INIT = "INIT"
 TAKEOFF = "TAKEOFF"
@@ -57,22 +61,6 @@ else:
     else:
         raise("unknown mission")
 
-def bf_to_wf(bf):
-    yaw = bf.angular.z
-    yaw *= math.pi/180
-    c = math.cos(yaw)
-    s = math.sin(yaw)
-    r = np.array([[c, -s, 0],[s, c, 0],[0,0,1]])
-
-    wf = Twist()
-    xy = np.array([bf.linear.x, bf.linear.y, 1])
-    wf.linear.x, wf.linear.y = np.dot(r,xy)[0:2]
-    wf.linear.z = bf.linear.z
-    wf.angular.x = bf.angular.x
-    wf.angular.y = bf.angular.y
-    wf.angular.z = bf.angular.z
-    return wf
-
 
 #############
 # Callbacks #
@@ -85,7 +73,7 @@ def estimate_callback(data):
     #print('received estimate')
     received_estimate = True
     bf_pose = data
-    current_pose = bf_to_wf(bf_pose)
+    current_pose = hlp.twist_bf_to_wf(bf_pose)
 
 def landing_complete_callback(data):
     global landing_complete
