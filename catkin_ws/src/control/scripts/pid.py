@@ -76,7 +76,7 @@ error_integral = np.array([0.0]*6)
 error_derivative = np.array([0.0]*6)
 freeze_integral = np.array([False]*6)
 
-wf_setpoint = cfg.controller_desired_pose
+wf_setpoint = cfg.default_setpoint
 bf_setpoint = [i for i in wf_setpoint]
 bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint, 0)
 
