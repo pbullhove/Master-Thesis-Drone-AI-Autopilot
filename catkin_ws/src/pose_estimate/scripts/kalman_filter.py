@@ -106,7 +106,8 @@ def sonar_callback(data):
         KF_update(R_sonar, C_sonar, y)
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
-calibration_acc = np.array([0.0, 0.0, 9.81])
+calibration_acc = np.array([0.0, 0.0, 9.81]) if not cfg.do_calibration_before_start else np.array([0.0,0.0,0.0])
+calib_steps = 0
 vel_min = -0.003
 vel_max = 0.003
 acc_min = -0.5
@@ -120,7 +121,11 @@ def navdata_callback(data):
     global P
     global Q_imu
     global prev_imu_yaw
+    global calib_steps
     global prev_navdata_timestamp
+    global calibration_vel
+    global calibration_acc
+
     try:
         delta_yaw = data.rotZ - prev_imu_yaw
         delta_yaw = hlp.angleFromTo(delta_yaw, -180,180)
@@ -134,8 +139,12 @@ def navdata_callback(data):
     finally:
         prev_imu_yaw = data.rotZ
 
-
-    vel = np.array([data.vx, data.vy, data.vz])/1000 - calibration_vel
+    if cfg.do_calibration_before_start and calib_steps < cfg.num_calib_steps:
+        calibration_vel += np.array([data.vx, data.vy, data.vz])/float(cfg.num_calib_steps)
+        calibration_acc += np.array([data.ax, data.ay, data.az])/float(cfg.num_calib_steps)
+        calib_steps += 1
+        return
+    vel = (np.array([data.vx, data.vy, data.vz]) - calibration_vel)/1000
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
 
 
@@ -158,8 +167,9 @@ def navdata_callback(data):
 
 x_est = np.zeros(6)
 P = np.ones((6,6))
-def main():
+def main():calibrating
     global x_est
+    global calib_steps
     rospy.init_node('combined_filter', anonymous=True)
 
     rospy.Subscriber('/estimate/dnnCV', Twist, yolo_estimate_callback)
@@ -175,9 +185,13 @@ def main():
 
     rate = rospy.Rate(30) # Hz
     while not rospy.is_shutdown():
-        x_est = [round(i,5) for i in x_est]
-        msg = hlp.to_Twist(x_est)
-        filtered_estimate_pub.publish(msg)
+        if not cfg.do_calibration_before_start or calib_steps >= cfg.num_calib_steps:
+            x_est = [round(i,5) for i in x_est]
+            msg = hlp.to_Twist(x_est)
+            filtered_estimate_pub.publish(msg)
+            print('finished calibrating')
+        else:
+            print('calibrating')
         rate.sleep()
 
 
