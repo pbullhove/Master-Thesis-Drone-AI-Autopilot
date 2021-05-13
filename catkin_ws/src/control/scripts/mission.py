@@ -201,10 +201,10 @@ def main():
             try:
                 setpoint_str = new_state.split('[')[-1].split(']')[0].split(',')
                 setpoint = [float(i) for i in setpoint_str]
-                desired_pose = hlp.to_twist(setpoint)
+                desired_pose = hlp.to_Twist(setpoint)
             except Exception as e:
                 print('faulty move statement. Moving to platform home.')
-                desired_pose = hlp.to_twist([0,0,1,0,0,0])
+                desired_pose = hlp.to_Twist([0,0,1,0,0,0])
             finally:
                 state = "MOVING"
                 pub_desired_pose.publish(desired_pose)

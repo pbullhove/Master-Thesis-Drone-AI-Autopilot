@@ -60,7 +60,7 @@ def kalman_gain(P_k,C,R):
     IS = R + np.dot(C, PCT)
     IS_inv = np.linalg.inv(IS)
     K = np.dot(PCT,IS_inv)
-    return K using a Kalman Filter approach
+    return K
 
 def P_post(P, C, K):
     """ Updating P after updateing x_est on new data"""
@@ -230,7 +230,6 @@ def main():
             x_est = [round(i,5) for i in x_est]
             msg = hlp.to_Twist(x_est)
             filtered_estimate_pub.publish(msg)
-            print('finished calibrating')
         else:
             print('calibrating')
         rate.sleep()
