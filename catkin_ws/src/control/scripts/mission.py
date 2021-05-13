@@ -155,7 +155,7 @@ def main():
     rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
 
     rospy.Subscriber('/ardrone/land', Empty, landing_complete_callback)
-state and actions strings
+
     def init_complete():
         """ Init is complete if all modules that are to communicate with mission are active,
         as well as pose estimates are arriving.
@@ -221,12 +221,11 @@ state and actions strings
     print('State is:', state)
     error_timer.start(cfg.error_timer_duration)
     while not rospy.is_shutdown():
-    """
-    Transition checking loop.
-    Constantly checks for state completion requirements. Transitions to next step in mission_plan if finished.
-    Will trainsitions are handled by the function "transition_to(state)".
-
-    """
+        """
+        Transition checking loop.
+        Constantly checks for state completion requirements. Transitions to next step in mission_plan if finished.
+        Will trainsitions are handled by the function transition_to(new_state).
+        """
         if state not in [ERROR, IDLE, INIT] and error_timer.is_timeout():
             state = ERROR
 
