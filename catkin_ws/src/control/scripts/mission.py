@@ -1,4 +1,36 @@
 #!/usr/bin/env python
+"""
+Mission control center.
+State machine approach for quadcopter mission control.
+
+Mission defined by:
+    mission_plan -  array of action strings. Quadcopter will perform actions in sequence.
+
+    available commands:
+        INIT: wait for init_compete(), then start
+        TAKEOFF: perform quadcopter takeoff
+        MOVE to [x,y,z,0,0,yaw]
+        PHOTOTWIRL: 360 degree spin and take photos in all directions.
+        HOVER: Hover at desired_pose for cfg.hover_duration seconds
+        LANDING: Perform automated landing over landing platform.
+        IDLE: do nothing
+
+Subscribes to:
+    /filtered_estimate: Twist - Current pose estimate
+    /ardrone/land: Emptty - For knowing that landing completed successfully.
+
+Publishes to:
+    /set_point: Twist - For quadcopter navigation, sendt to PID controller to complete.
+    /ardrone/takeoff: Empty - For quadcopter takeoff.
+    /initiate_automated_landing: Empty - For initiating automated landing.
+    /take_still_photo_front: Empty - Front photo capture
+    /take_still_photo_bottom: Empty - Bottom photo capture
+    /cmd_vel: Twist - For emergency state: Direct control of quadcopter:
+    /pid_on_off: Bool - For emergency state: Direct control of quadcopter, toggle pid off.
+
+"""
+
+
 import rospy
 import numpy as np
 import sys
@@ -68,6 +100,7 @@ else:
 
 
 def estimate_callback(data):
+    """ Receives best current quadcopter pose estimate. """
     global current_pose
     global received_estimate
     #print('received estimate')
@@ -100,18 +133,6 @@ def close_enough(pose_a, pose_b):
 
     return ang < cfg.close_enough_ang and euc < cfg.close_enough_euc
 
-def to_twist(array):
-    tw = Twist()
-    tw.linear.x = array[0]
-    tw.linear.y = array[1]
-    tw.linear.z = array[2]
-    tw.angular.x = array[3]
-    tw.angular.y = array[4]
-    tw.angular.z = array[5]
-    return tw
-
-
-
 
 def main():
     rospy.init_node('mission',anonymous=True)
@@ -136,6 +157,9 @@ def main():
     rospy.Subscriber('/ardrone/land', Empty, landing_complete_callback)
 
     def init_complete():
+        """ Init is complete if all modules that are to communicate with mission are active,
+        as well as pose estimates are arriving.
+        """
         a = pub_desired_pose.get_num_connections() > 0
         b = pub_start_takeoff.get_num_connections() > 0
         c = pub_start_automated_landing.get_num_connections() > 0
@@ -145,6 +169,10 @@ def main():
 
 
     def transition_to(new_state):
+        """
+        Handles mission state transitions.
+        Changes state to new state, as well as performing required actions to initiate new state.
+        """
         global desired_pose
         global state
         global timer
@@ -173,10 +201,10 @@ def main():
             try:
                 setpoint_str = new_state.split('[')[-1].split(']')[0].split(',')
                 setpoint = [float(i) for i in setpoint_str]
-                desired_pose = to_twist(setpoint)
+                desired_pose = hlp.to_Twist(setpoint)
             except Exception as e:
                 print('faulty move statement. Moving to platform home.')
-                desired_pose = to_twist([0,0,1,0,0,0])
+                desired_pose = hlp.to_Twist([0,0,1,0,0,0])
             finally:
                 state = "MOVING"
                 pub_desired_pose.publish(desired_pose)
@@ -193,6 +221,11 @@ def main():
     print('State is:', state)
     error_timer.start(cfg.error_timer_duration)
     while not rospy.is_shutdown():
+        """
+        Transition checking loop.
+        Constantly checks for state completion requirements. Transitions to next step in mission_plan if finished.
+        Will trainsitions are handled by the function transition_to(new_state).
+        """
         if state not in [ERROR, IDLE, INIT] and error_timer.is_timeout():
             state = ERROR
 

@@ -1,8 +1,30 @@
 #!/usr/bin/env python
 """
+A pose estimation Kalman Filter which combines data from mulitiple sensors in a statistically
+optimal way, based on estimated sensor noise. Predictions are performed using IMU data velocities and accelerations.
+Updates are performed with the other sensors.
 
+x_est = (x, y, z, roll, pitch, yaw)
+roll, pitch := (0,0)
+P = error covariance matrix, meaning how uncertain is the current x_est.
 
+Sensors:
+- Camera: (two methods, dnnCV, and tcv)
+- IMU: drone velocities and accelerations
+- Sonar: drone altitude
+- Mock gps: in the simulated environmet, not available on real ardrone.
 
+Tune Kalman Filter by changing R-values for the desired sensors, where R specifies measurement noise,
+and by changing Q_imu which specifies how uncertain IMU predictions are.
+
+Subscribes to:
+    /estimate/dnnCV: Twist - Pose estimates from the dnn CV method
+    /estimate/tcv: Twist - Pose estimates from the tcv CV method.
+    /mock_gps: Twist - Pose estimates from the simulator mock gps.
+    /ardrone/navdata: Odometry - Odometry data from ardrone.
+
+Publishes to:
+    /filtered_estimate: Twist - the current estimated quadcopter pose
 """
 import rospy
 import numpy as np
@@ -33,6 +55,7 @@ Q_imu = 0.001*np.diag([1, 1, 1, 0, 0, 1])
 P = np.zeros((6,6))
 
 def kalman_gain(P_k,C,R):
+    """ Computes the Kalman Gain which specifies how much to update x_est given a new measurement. """
     PCT = np.dot(P_k, C.T)
     IS = R + np.dot(C, PCT)
     IS_inv = np.linalg.inv(IS)
@@ -40,14 +63,23 @@ def kalman_gain(P_k,C,R):
     return K
 
 def P_post(P, C, K):
+    """ Updating P after updateing x_est on new data"""
     P = np.dot((np.eye(6) - np.dot(K,C)), P)
     return P
 
 def P_apri(P, Q):
+    """ Increaing P when predicting.
+    P = FPF^T + Q. No F is availabe, so simplified implementation."""
     P = P + Q
     return P
 
 def KF_update(R,C,y):
+    """ Updates x_est and P given sensor measurement y, with sensor noise R, and sensor matrix C.
+    Predicts yaw within [-180, 180] range.
+
+    output:
+        modifies P, x_est
+    """
     global P
     global x_est
     K = kalman_gain(P, C, R)
@@ -62,7 +94,7 @@ def KF_update(R,C,y):
     P = P_post(P,C,K)
 
 def yolo_estimate_callback(data):
-    """ Filters pose estimates from yolo cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.7m above platform, as camera view too close for correct estimates. """
+    """ Filters pose estimates from yolo cv algorithm. Estimates pos in xyz and yaw. Only use this if more than 0.7m above platform, as camera view too close for correct estimates. """
     global x_est
     global P
     yolo_estimate = hlp.twist_to_array(data)
@@ -99,14 +131,9 @@ def gps_callback(data):
     y = gps_measurement[0:3]
     KF_update(R_gps, C_gps, y)
 
-def sonar_callback(data):
-    """ Filters sonar data which is measurement of height. Maximum sonar height is 3m. """
-    y = data.range
-    if y < 2:
-        KF_update(R_sonar, C_sonar, y)
-
 calibration_vel = np.array([0.0, 0.0, 0.0])
-calibration_acc = np.array([0.0, 0.0, 9.81])
+calibration_acc = np.array([0.0, 0.0, 9.81]) if not cfg.do_calibration_before_start else np.array([0.0, 0.0, 0.0])
+calib_steps = 0
 vel_min = -0.003
 vel_max = 0.003
 acc_min = -0.5
@@ -115,12 +142,27 @@ ONE_g = 9.8067
 prev_imu_yaw = None
 prev_navdata_timestamp = None
 def navdata_callback(data):
-    """ Filters estimates from the IMU data and predicts quadcopter pose. """
+    """
+    Filters estimates from the IMU data and predicts quadcopter pose.
+    Updates estimate with sonar data.
+
+    Performs calibration before start by setting calibration_vel, calibration_acc to average of standstill values for about 5 seconds.
+    Does not publish any estimates before after calibration. Toggle calibration in config.
+
+    input:
+        data: Odometry from ardrone 200hz
+    output:
+        changes x_est, P
+    """
     global x_est
     global P
     global Q_imu
     global prev_imu_yaw
+    global calib_steps
     global prev_navdata_timestamp
+    global calibration_vel
+    global calibration_acc
+
     try:
         delta_yaw = data.rotZ - prev_imu_yaw
         delta_yaw = hlp.angleFromTo(delta_yaw, -180,180)
@@ -134,8 +176,12 @@ def navdata_callback(data):
     finally:
         prev_imu_yaw = data.rotZ
 
-
-    vel = np.array([data.vx, data.vy, data.vz])/1000 - calibration_vel
+    if cfg.do_calibration_before_start and calib_steps < cfg.num_calib_steps:
+        calibration_vel += np.array([data.vx, data.vy, data.vz])/float(cfg.num_calib_steps)
+        calibration_acc += np.array([data.ax, data.ay, data.az])/float(cfg.num_calib_steps)
+        calib_steps += 1
+        return
+    vel = (np.array([data.vx, data.vy, data.vz]) - calibration_vel)/1000
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
 
 
@@ -155,17 +201,22 @@ def navdata_callback(data):
     P = P_apri(P, Q_imu)
     x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
 
+    """ Updates KF with sonar data if low enough for sonar to be effective. """
+    y = data.altd
+    if y < 2000:
+        KF_update(R_sonar, C_sonar, y/1000.0)
+
 
 x_est = np.zeros(6)
 P = np.ones((6,6))
 def main():
     global x_est
+    global calib_steps
     rospy.init_node('combined_filter', anonymous=True)
 
     rospy.Subscriber('/estimate/dnnCV', Twist, yolo_estimate_callback)
     rospy.Subscriber('/estimate/tcv', Twist, tcv_estimate_callback)
     rospy.Subscriber('/mock_gps', Twist, gps_callback)
-    rospy.Subscriber('/sonar_height', Range, sonar_callback)
     rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
 
     filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
@@ -175,9 +226,12 @@ def main():
 
     rate = rospy.Rate(30) # Hz
     while not rospy.is_shutdown():
-        x_est = [round(i,5) for i in x_est]
-        msg = hlp.to_Twist(x_est)
-        filtered_estimate_pub.publish(msg)
+        if not cfg.do_calibration_before_start or calib_steps >= cfg.num_calib_steps:
+            x_est = [round(i,5) for i in x_est]
+            msg = hlp.to_Twist(x_est)
+            filtered_estimate_pub.publish(msg)
+        else:
+            print('calibrating')
         rate.sleep()
 
 

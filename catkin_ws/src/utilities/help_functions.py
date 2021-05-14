@@ -43,9 +43,10 @@ def wf_to_bf(wf,yaw):
     s = math.sin(yaw)
     r_inv = np.array([[c, s, 0],[-s, c, 0],[0,0,1]])
 
-    wf = np.array([wf[0], wf[1], 1])
-    bf = np.dot(r_inv,wf)
-    return bf[0:2]
+    wf_xy1 = np.array([wf[0], wf[1], 1])
+    bf_xy1 = np.dot(r_inv,wf_xy1)
+    bf = np.array([bf_xy1[0], bf_xy1[1], wf[2], wf[3], wf[4], wf[5]])
+    return bf
 
 
 def angleFromTo(ang, min, max):
@@ -62,7 +63,7 @@ def angleFromTo(ang, min, max):
 
 
 
-def bf_to_wf(bf,yaw):
+def bf_to_wf(bf,yaw=None):
     """
     Transforms body frame pose into world frame pose. This is by performing a yaw rotation about the
     z-axis of the x and y coordinates. z, pitch, roll, yaw unchanged.
@@ -73,17 +74,20 @@ def bf_to_wf(bf,yaw):
     output:
         wf: array[6] float - pose in world frame.
     """
-    yaw *= math.pi/180
-    c = math.cos(yaw)
-    s = math.sin(yaw)
+    y = yaw if yaw is not None else bf[5]
+    y *= math.pi/180
+    c = math.cos(y)
+    s = math.sin(y)
     r = np.array([[c, -s, 0],[s, c, 0],[0,0,1]])
 
-    bf = np.array([bf[0], bf[1], 1])
-    wf = np.dot(r,bf)
-    return bf[0:2]
+    bf_xy1 = np.array([bf[0], bf[1], 1])
+    wf_xy1 = np.dot(r,bf_xy1)
+
+    wf = np.array([wf_xy1[0], wf_xy1[1], bf[2], bf[3], bf[4], bf[5]])
+    return wf
 
 
-def twist_bf_to_wf(bf):
+def twist_bf_to_wf(bf, yaw=None):
     """
     Transforms body frame pose into world frame pose. This is by performing a yaw rotation about the
     z-axis of the x and y coordinates. z, pitch, roll, yaw unchanged.
@@ -94,10 +98,10 @@ def twist_bf_to_wf(bf):
     output:
         wf: Twist - pose in world frame.
     """
-    yaw = bf.angular.z
-    yaw *= math.pi/180
-    c = math.cos(yaw)
-    s = math.sin(yaw)
+    y = yaw if yaw is not None else bf.angular.z
+    y *= math.pi/180
+    c = math.cos(y)
+    s = math.sin(y)
     r = np.array([[c, -s, 0],[s, c, 0],[0,0,1]])
 
     wf = Twist()
@@ -120,10 +124,10 @@ def twist_wf_to_bf(wf):
     output:
         wf: Twist - pose in body frame.
     """
-    yaw = wf.angular.z
-    yaw *= math.pi/180
-    c = math.cos(yaw)
-    s = math.sin(yaw)
+    y = yaw if yaw is not None else wf.angular.z
+    y *= math.pi/180
+    c = math.cos(y)
+    s = math.sin(y)
     r_inv = np.array([[c, s, 0],[-s, c, 0],[0,0,1]])
 
     bf = Twist()

@@ -1,4 +1,19 @@
 #!/usr/bin/env python
+
+
+"""
+PID controller module for use in quadcopter missions, for calculating control signals which will
+control the quadcopter to the desired position and orientation.
+
+Subscribes to
+    - /filtered_estimate:  quadcopter pose_estimate
+    - /set_point: quadcopter desired pose
+    - /pid_on_off: toggle pid control
+    - /ardrone/takeoff: for internal calculations of control signals
+Publishes to
+    - /cmd_vel: quadcopter control signal velocities
+"""
+
 import rospy
 import numpy as np
 import help_functions as hlp
@@ -27,6 +42,12 @@ bf_setpoint = None
 
 
 def estimate_callback(data):
+    """ Receives estimated pose from pose_estimate package. Estimated pose is body frame.
+            data: Twist - estimated pose in body frame
+            est_state: float [6]np.array - last received estimated pose in body frames
+            bf_setpoint: float [6]np.array - desired pose in body frame
+            wf_setpoint: float [6]np.array - desired pose in world frame
+    """
     global est_state
     global wf_setpoint
     global bf_setpoint
@@ -34,8 +55,7 @@ def estimate_callback(data):
 
     est_state = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
-    try: #rotate setpint to match body frame given new yaw
-        # if abs(est_state[5] - prev_setpoint_yaw) > 0.5:
+    try: #rotate setpoint to match body frame given new yaw
         bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2], est_state[5])
         prev_setpoint_yaw = data.angular.z
     except TypeError as e: # no prev setpoint yaw
@@ -46,6 +66,7 @@ def estimate_callback(data):
 
 
 def pid_on_off_callback(data):
+    """ Toggles PID control on and off depending on std_msgs/Bool data """
     global pid_on_off
     pid_on_off = data.data
 
@@ -55,7 +76,7 @@ error_integral = np.array([0.0]*6)
 error_derivative = np.array([0.0]*6)
 freeze_integral = np.array([False]*6)
 
-wf_setpoint = cfg.controller_desired_pose
+wf_setpoint = cfg.default_setpoint
 bf_setpoint = [i for i in wf_setpoint]
 bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint, 0)
 
@@ -69,6 +90,11 @@ error_integral_limit = cfg.error_integral_limit
 
 
 def set_point_callback(data):
+    """ Receives new desired pose for the quadcopter, and calculates desired pose in body frame using current estimated yaw.
+            data: Twist - desired pose in world frame
+            bf_setpoint: float [6]np.array - desired pose in body frame
+            wf_setpoint: float [6]np.array - desired pose in world frame
+    """
     global wf_setpoint
     global bf_setpoint
     wf_setpoint[0] = data.linear.x # + cfg.offset_setpoint_x
@@ -83,13 +109,20 @@ def set_point_callback(data):
         bf_setpoint = [i for i in wf_setpoint]
 
 def take_off_callback(data):
-    # Reset the error integral each take off,
-    # since error might have accumulated during stand-still
+    """ Resets error integral on takeoff as error might have accumulated during stand-still.
+        data: std_msgs/Empty
+    """
     global error_integral
     error_integral = np.array([0.0]*6)
 
 
 def controller(state):
+    """ Calculates the desired control signals (actuation) for the quadcopter in order to reach the desired pose.
+    input:
+        state: float [6]np.array - the current state of the quadcopter
+        bf_setpoint: float [6]np.array - the desired state of the quadcopter
+    output:
+        actuation_clipped: float [6]np.array - command velocity control signals for quadcopter"""
     global error_prev
     global error_integral
     global error_derivative
@@ -99,16 +132,11 @@ def controller(state):
     curr_time = rospy.get_time()
     time_interval = curr_time - prev_time
     prev_time = curr_time
-    # bf_setpoint = [i for i in wf_setpoint]
-    # bf_setpoint[0:2] = hlp.wf_to_bf(bf_setpoint[0:2],est_state[5])
     error = bf_setpoint - state
-    #error[5] = hlp.angleFromTo(error[5], -180, 180)
-    if error[5] < -180:
-        error[5] += 360
+    error[5] = hlp.angleFromTo(error[5], -180, 180)
     error_integral += (time_interval * (error_prev + error)/2.0)*np.invert(freeze_integral)
     error_derivative = error - error_prev
     error_prev = error
-    # error_integral = np.clip(error_integral, -error_integral_limit, error_integral_limit)
 
     z_reference = bf_setpoint[2]
     actuation_reduction_array = np.array([1.0]*6)
@@ -129,63 +157,33 @@ def controller(state):
 
     freeze_integral = np.logical_and(saturated, same_sign)
 
-    #print(actuation_clipped)
     return actuation_clipped
 
 
 def main():
     global prev_time
     global bf_setpoint
-    out_of_bounds_error = False
     rospy.init_node('pid_controller', anonymous=True)
 
     use_estimate = True
-
     if use_estimate:
-        #rospy.Subscriber('/estimate/dead_reckoning', Twist, estimate_callback)
         rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
     else:
         rospy.Subscriber('/drone_ground_truth', Twist, estimate_callback)
 
-
-    # rospy.Subscriber('/ground_truth/state', Odometry, gt_callback)
-
     rospy.Subscriber('/set_point', Twist, set_point_callback)
-
-
     rospy.Subscriber('/ardrone/takeoff', Empty, take_off_callback)
-
     rospy.Subscriber('/pid_on_off', Bool, pid_on_off_callback)
-
-
-    reference_pub = rospy.Publisher('/drone_reference', Twist, queue_size=10)
-    # pose_pub = rospy.Publisher('/drone_pose', Twist, queue_size=10)
-    error_pub = rospy.Publisher('/drone_error', Twist, queue_size=10)
-    error_integral_pub = rospy.Publisher('/drone_error_integral', Twist, queue_size=10)
-
     control_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
     time.sleep(1)
-
     rospy.loginfo("Starting doing PID control with ar_pose as feedback")
 
-    reference_msg = Twist()
-    # reference_msg.linear.x = bf_setpoint[0]
-    # reference_msg.linear.y = bf_setpoint[1]
-    # reference_msg.linear.z = bf_setpoint[2]
-    # reference_msg.angular.x = bf_setpoint[3]
-    # reference_msg.angular.y = bf_setpoint[4]
-    # reference_msg.angular.z = bf_setpoint[5]
-
-    pose_msg = Twist()
-    error_msg = Twist()
-    error_integral_msg = Twist()
-
+    msg = Twist()
+    out_of_bounds_error = False
     prev_time = rospy.get_time()
-
     rate = rospy.Rate(100) # Hz
     while not rospy.is_shutdown():
-
         state = est_state
 
         if state is not None and not out_of_bounds_error:
@@ -194,63 +192,19 @@ def main():
                 out_of_bounds_error = True
 
         if out_of_bounds_error:
-            msg = Twist()
             msg.linear.x = 0
             msg.linear.y = 0
             msg.linear.z = cfg.error_descent_vel
             msg.angular.z = 0
             control_pub.publish(msg)
-        elif (state is not None) and pid_on_off:
 
+        elif (state is not None) and pid_on_off:
             actuation = controller(state)
-            msg = Twist()
             msg.linear.x = actuation[0]
             msg.linear.y = actuation[1]
             msg.linear.z = actuation[2]
             msg.angular.z = actuation[5]
-
             control_pub.publish(msg)
-
-            # Publish values for tuning
-            reference_msg.linear.x = bf_setpoint[0]
-            reference_msg.linear.y = bf_setpoint[1]
-            reference_msg.linear.z = bf_setpoint[2]
-            reference_msg.angular.x = bf_setpoint[3]
-            reference_msg.angular.y = bf_setpoint[4]
-            reference_msg.angular.z = bf_setpoint[5]
-            reference_pub.publish(reference_msg)
-
-            # pose_msg.linear.x = gt_state[0]
-            # pose_msg.linear.y = gt_state[1]
-            # pose_msg.linear.z = gt_state[2]
-            # pose_msg.angular.x = 0
-            # pose_msg.angular.y = 0
-
-            # yaw = -np.degrees(gt_state[5]) - 90
-            # if yaw < -180:
-            #     gt_yaw = 360 + yaw
-            # else:
-            #     gt_yaw = yaw
-
-            # pose_msg.angular.z = gt_yaw
-            # pose_pub.publish(pose_msg)
-
-            error_msg.linear.x = error_prev[0]
-            error_msg.linear.y = error_prev[1]
-            error_msg.linear.z = error_prev[2]
-            error_msg.angular.x = error_prev[3]
-            error_msg.angular.y = error_prev[4]
-            error_msg.angular.z = error_prev[5]
-            error_pub.publish(error_msg)
-
-            error_integral_msg.linear.x = error_integral[0]
-            error_integral_msg.linear.y = error_integral[1]
-            error_integral_msg.linear.z = error_integral[2]
-            error_integral_msg.angular.x = error_integral[3]
-            error_integral_msg.angular.y = error_integral[4]
-            error_integral_msg.angular.z = error_integral[5]
-            error_integral_pub.publish(error_integral_msg)
-
 
         rate.sleep()
 
