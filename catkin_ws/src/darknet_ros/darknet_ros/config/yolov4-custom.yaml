@@ -3,9 +3,9 @@ yolo_model:
   config_file:
     name: yolov4-custom.cfg
   weight_file:
-    name: yolov4-custom.weights
+    name: center.weights
   threshold:
-    value: 0.3
+    value: 0.8
   detection_classes:
     names:
       - Arrow

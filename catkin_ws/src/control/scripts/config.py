@@ -9,7 +9,9 @@ import math
 # General
 is_simulator = True
 
-default_setpoint = np.array([0.1, 0, 2, 0, 0, 0])
+default_setpoint = np.array([0.1, 0, 1.5, 0, 0, 0])
+
+takeoff_height = 1.5
 
 ##########################
 #  MISSION PARAMETERS    #
@@ -19,7 +21,6 @@ close_enough_ang = 3
 hover_duration = 5
 landing_timer_duration = 10
 takeoff_timer_duration = 3
-takeoff_height = 2
 
 # ABORT MISSION PARAMETERS
 x_upper_limit = 15
@@ -55,17 +56,17 @@ if is_simulator:
     ####################
 
 else:
-    Kp_position_x = 1.5
-    Ki_position_x = 0.01
-    Kd_position_x = 0.3
+    Kp_position_x = 0.05
+    Ki_position_x = 0.0
+    Kd_position_x = 10
     ####################
     Kp_position_y = Kp_position_x
     Ki_position_y = Ki_position_x
     Kd_position_y = Kd_position_x
     ####################
-    Kp_position_z = 1.5
-    Ki_position_z = 0.01
-    Kd_position_z = 0.3
+    Kp_position_z = 0.5
+    Ki_position_z = 0.001
+    Kd_position_z = 20
     ####################
     Kp_orientation = 0.0
     Ki_orientation = 0.0

@@ -17,7 +17,7 @@ import numpy as np
 from geometry_msgs.msg import Twist
 import sys
 sys.path.append('../utilities')
-import help_functions as hlp
+import pe_help_functions as hlp
 
 #############
 # Callbacks #

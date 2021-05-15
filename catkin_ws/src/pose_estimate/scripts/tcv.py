@@ -1432,7 +1432,6 @@ def main():
             # denoised = cv2.fastNlMeansDenoisingColored(global_image,None,10,10,7,21) # denoising
             hsv = cv2.cvtColor(global_image, cv2.COLOR_BGR2HSV) # convert to HSV
             est, method, processed_image = get_estimate(hsv, count, current_ground_truth)
-
             if processed_image is not None:
                 pub_processed_image.publish(processed_image)
 

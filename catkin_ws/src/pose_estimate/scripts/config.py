@@ -8,7 +8,7 @@ import math
 
 # General
 is_simulator = True
-do_calibration_before_start = not is_simulator
+do_calibration_before_start = False
 num_calib_steps = 1000
 
 # CV module
