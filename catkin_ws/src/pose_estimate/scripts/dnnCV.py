@@ -54,7 +54,8 @@ def deg2rad(deg):
 
 def transform_pixel_position_to_world_coordinates(center_px, radius_px):
     center_px = (center_px[1], center_px[0]) # such that x = height, y = width for this
-    focal_length = 374.67
+
+    focal_length = 374.67 if cfg.is_simulator else 720
     real_radius = 390 # mm (780mm in diameter / 2)
 
     # Center of image

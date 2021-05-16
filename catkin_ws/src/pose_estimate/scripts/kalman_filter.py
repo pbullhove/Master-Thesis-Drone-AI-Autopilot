@@ -22,7 +22,7 @@ Subscribes to:
     /estimate/tcv: Twist - Pose estimates from the tcv CV method.
     /mock_gps: Twist - Pose estimates from the simulator mock gps.
     /ardrone/navdata: Odometry - Odometry data from ardrone.
-    /ardrone/takeoff: Empty - To reset integrated velocities on takeoff.
+    /ardrone/takeoff: Empty - To reset x_est and v_est on takeoff.
 
 Publishes to:
     /filtered_estimate: Twist - the current estimated quadcopter pose
@@ -32,6 +32,7 @@ import numpy as np
 from geometry_msgs.msg import Twist
 from ardrone_autonomy.msg import Navdata
 from sensor_msgs.msg import Imu, Range
+from std_msgs.msg import Empty
 from nav_msgs.msg import Odometry
 from datetime import datetime
 from scipy.spatial.transform import Rotation as R
@@ -53,14 +54,14 @@ C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
 C_sonar = np.array([0,0,1,0,0,0]).reshape((1,6))
 C_baro = np.array([0,0,1,0,0,0]).reshape((1,6))
 
-R_dnnCV = 0.1*np.eye(6)
-R_tcv = 0.1*np.eye(6)
-R_gps = 0.1*np.eye(3)
-R_sonar = 0.1*np.eye(1)
-R_baro = 3*np.eye(1)
+R_dnnCV = 5*np.eye(6) # 10hz
+R_tcv = 40*np.diag([1,1,1,1,1,1000]) # 10hz
+R_gps = 1*np.eye(3) # 2 hz
+R_sonar = 500*np.eye(1) # 200hz
+R_baro = 500*np.eye(1) # 200hz
 
-Q_imu = 1*np.diag([1, 1, 1, 0, 0, 1])
-Q_imu_vel = 3*np.diag([1, 1, 1])
+Q_imu = 2*np.diag([1, 1, 1, 0, 0, 1])
+Q_imu_vel = 1*np.diag([1, 1, 1])
 
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
@@ -69,8 +70,8 @@ calibration_pressure = 0.0
 calib_pitch = 0.0
 calib_roll = 0.0
 calib_steps = 0
-low_vel_limit = 0.003
 low_acc_limit = 0.1
+high_acc_limit = 5.0
 ONE_g = 9.8067
 vel_decay = 0.0
 prev_imu_yaw = None
@@ -115,6 +116,15 @@ def KF_update(R,C,y):
     global x_est
     global x_est_prev
     global v_est
+    """ If measurement is more than 5m away from current estimate and is more than 5m of start: discard measurement"""
+    try:
+        if ((np.absolute(y - np.dot(C,x_est)))[0:3] > np.array([5,5,5])).any() and (np.absolute(y)[0:3] > np.array([5,5,5])).any():
+            print('discard')
+            return
+    except IndexError as e: # range updates
+        if (np.absolute(y - np.dot(C,x_est)) > 5) and (np.absolute(y) > 5):
+            return
+
     K = kalman_gain(P, C, R)
     innov = y-np.dot(C,x_est)
     try: # for jumping between yaw = 179, -179
@@ -163,13 +173,13 @@ def dnnCV_estimate_callback(data):
                 y_prev_dnnCV, t_prev_dnnCV = KF_vel_update(R_dnnCV[0:3,0:3]*4, C[0:3,0:3], y[0:3], y_prev_dnnCV, t_prev_dnnCV)
             else:
                 t_prev_dnnCV = datetime.now()
-                y_prev_dnnCV = y
+                y_prev_dnnCV = y[0:3]
         except TypeError  as e:
             t_prev_dnnCV = datetime.now()
             y_prev_dnnCV = y[0:3]
 
 def tcv_estimate_callback(data):
-    global t_prev_tcvf
+    global t_prev_tcv
     global y_prev_tcv
     """ Filters pose estimates from tcv cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.4m above platform, as camera view too close for correct estimates. """
     tcv_estimate = hlp.twist_to_array(data)
@@ -188,7 +198,7 @@ def tcv_estimate_callback(data):
                 y_prev_tcv, t_prev_tcv = KF_vel_update(R_tcv[0:3,0:3]*4, C[0:3,0:3], y[0:3], y_prev_tcv, t_prev_tcv)
             else:
                 t_prev_tcv = datetime.now()
-                y_prev_tcv = y
+                y_prev_tcv = y[0:3]
         except TypeError  as e:
             t_prev_tcv = datetime.now()
             y_prev_tcv = y[0:3]
@@ -212,26 +222,34 @@ def gps_callback(data):
         t_prev_gps = datetime.now()
         y_prev_gps = y
 
-
+def takeoff_callback(data):
+    """ Resets estimate on takeoff """
+    global x_est
+    global v_est
+    global P
+    global P_v
+    x_est[0:3] = np.array([0.0,0.0,0.0])
+    P[0:3,0:3] = 0.1*np.eye(3)
+    v_est = np.array([0.0,0.0,0.0])
+    P_v = 0.1*np.eye(3)
 
 def navdata_callback(data):
     """
     Filters estimates from the IMU data and predicts quadcopter pose.
-    Updates estimate with barometric pressure data.
+    Updates estimate with barometric pressure data (real) or sonar data (simulator).
 
     Performs calibration before start by setting calibration_vel, calibration_acc to average of standstill values for about 5 seconds.
     Does not publish any estimates before after calibration. Toggle calibration in config.
 
     input:
         data: Odometry from ardrone 200hz
-    output:    global x_est_prev
-        changes x_est, P
+    output:
+        x_est, P, v_est, P_v
     """
     global x_est
     global v_est
     global P
     global P_v
-    global Q_imu
     global prev_imu_yaw
     global calib_steps
     global prev_navdata_timestamp
@@ -242,6 +260,8 @@ def navdata_callback(data):
     global calib_pitch
     global t_prev_range
     global y_prev_range
+
+    """ Calibration before start. """
     if cfg.do_calibration_before_start and calib_steps < cfg.num_calib_steps:
         calibration_vel += np.array([data.vx, data.vy, data.vz])/float(cfg.num_calib_steps)
         calibration_acc += np.array([data.ax, data.ay, data.az - 1])*ONE_g/float(cfg.num_calib_steps)
@@ -251,6 +271,7 @@ def navdata_callback(data):
         calib_steps += 1
         return
 
+    """ Reading yaw and time data. """
     try:
         delta_yaw = data.rotZ - prev_imu_yaw
         delta_yaw = hlp.angleFromTo(delta_yaw, -180,180)
@@ -264,37 +285,39 @@ def navdata_callback(data):
     finally:
         prev_imu_yaw = data.rotZ
 
-    # vel = (np.array([data.vx, data.vy, data.vz]) - calibration_vel)/1000
+    """ Reading IMU accelerations. """
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
     p = hlp.deg2rad(data.rotY - calib_pitch)
     r = hlp.deg2rad(data.rotX - calib_roll)
     gravity_vec = ONE_g*np.array([-math.sin(p),math.cos(p)*math.sin(r), math.cos(p)*math.cos(r)])
     acc -= gravity_vec
-    # extreme_values_filter_val = np.logical_and(np.less(vel, low_vel_limit), np.greater(vel, -low_vel_limit))
-    extreme_values_filter_acc = np.logical_and(np.less(acc, low_acc_limit), np.greater(acc, -low_acc_limit))
-    # vel[extreme_values_filter_val] = 0.0
-    acc[extreme_values_filter_acc] = 0.0
+    low_values_filter_acc = np.logical_and(np.less(acc, low_acc_limit), np.greater(acc, -low_acc_limit))
+    high_values_filter_acc = np.logical_and(np.less(acc, high_acc_limit), np.greater(acc, -high_acc_limit))
+    acc[low_values_filter_acc] = 0.0
+    acc[low_values_filter_acc] = 0.0
 
-
+    """ Integrating acc to find v_est. """
     v_est *= 1-vel_decay
     v_est += delta_t*acc
     v_est = np.array([max(-cfg.vel_estimate_limit,i) for i in v_est])
     v_est = np.array([min(cfg.vel_estimate_limit,i) for i in v_est])
     delta_pos = delta_t*v_est + 0.5*acc*delta_t**2
+    delta_pos = np.zeros(3)
 
+    """ Predicting x_est based on v_est and delta_yaw."""
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
     x_est = x_est + delta_x
-
     r = R.from_euler('z', -np.radians(delta_yaw))
     x_est[0:3] = r.apply(x_est[0:3])
     P = P_apri(P, Q_imu)
     P_v = P_apri(P_v, Q_imu_vel)
     x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
 
+    """ Update x_est and v_est based on sonar data (simulator) or barometric data (real). """
     y = data.pressure # Z measurement for real QC
     if y > 0.0:
         y = calibration_pressure - y
-        y /= 11.3
+        y /= 11.3 # pressure to height constant
         KF_update(R_baro, C_baro, y)
         try:
             if (datetime.now() - t_prev_range).total_seconds() < 1:
@@ -333,6 +356,7 @@ def main():
     rospy.Subscriber('/estimate/tcv', Twist, tcv_estimate_callback)
     rospy.Subscriber('/mock_gps', Twist, gps_callback)
     rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
+    rospy.Subscriber('/ardrone/takeoff', Empty, takeoff_callback)
 
     filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
 
@@ -345,7 +369,7 @@ def main():
             x_est = [round(i,5) for i in x_est]
             msg = hlp.to_Twist(x_est)
             filtered_estimate_pub.publish(msg)
-            rospy.loginfo(v_est)
+            # rospy.loginfo(v_est)
         else:
             print('calibrating')
         rate.sleep()

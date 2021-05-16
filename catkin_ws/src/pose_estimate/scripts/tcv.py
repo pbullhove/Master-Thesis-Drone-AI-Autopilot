@@ -68,87 +68,6 @@ def gt_callback(data):
     global_ground_truth = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
 
-# def gt_convertion():
-#     if global_ground_truth is None:
-#         print "No ground truth available"
-#         return None
-#     gt_pose = global_ground_truth
-#     # Transform ground truth in body frame wrt. world frame to body frame wrt. landing platform
-
-#     ##########
-#     # 0 -> 2 #
-#     ##########
-
-#     # Position
-#     p_x = gt_pose.position.x
-#     p_y = gt_pose.position.y
-#     p_z = gt_pose.position.z
-
-#     # Translation of the world frame to body frame wrt. the world frame
-#     d_0_2 = np.array([p_x, p_y, p_z])
-
-#     # Orientation
-#     q_x = gt_pose.orientation.x
-#     q_y = gt_pose.orientation.y
-#     q_z = gt_pose.orientation.z
-#     q_w = gt_pose.orientation.w
-
-#     # Rotation of the body frame wrt. the world frame
-#     r_0_2 = R.from_quat([q_x, q_y, q_z, q_w])
-#     r_2_0 = r_0_2.inv()
-
-
-#     ##########
-#     # 0 -> 1 #
-#     ##########
-
-#     # Translation of the world frame to landing frame wrt. the world frame
-#     offset_x = 1.0
-#     offset_y = 0.0
-#     offset_z = 0.495
-#     d_0_1 = np.array([offset_x, offset_y, offset_z])
-
-#     # Rotation of the world frame to landing frame wrt. the world frame
-#     # r_0_1 = np.identity(3) # No rotation, only translation
-#     r_0_1 = np.identity(3) # np.linalg.inv(r_0_1)
-
-
-#     ##########
-#     # 2 -> 1 #
-#     ##########
-#     # Transformation of the body frame to landing frame wrt. the body frame
-
-#     # Translation of the landing frame to bdy frame wrt. the landing frame
-#     d_1_2 = d_0_2 - d_0_1
-
-#     # Rotation of the body frame to landing frame wrt. the body frame
-#     r_2_1 = r_2_0
-
-#     yaw = r_2_1.as_euler('xyz')[2]
-
-#     r_2_1_yaw = R.from_euler('z', yaw)
-
-#     # Translation of the body frame to landing frame wrt. the body frame
-#     d_2_1 = -r_2_1_yaw.apply(d_1_2)
-
-
-#     # Translation of the landing frame to body frame wrt. the body frame
-#     # This is more intuitive for the controller
-#     d_2_1_inv = -d_2_1
-
-#     local_ground_truth = np.concatenate((d_2_1_inv, r_2_1.as_euler('xyz')))
-
-#     # Transform to get the correct yaw
-#     yaw = -np.degrees(local_ground_truth[5]) - 90
-#     if yaw < -180:
-#         gt_yaw = 360 + yaw
-#     else:
-#         gt_yaw = yaw
-#     local_ground_truth[5] = gt_yaw
-
-#     return local_ground_truth
-
-
 ##################
 # Help functions #
 ##################
@@ -664,82 +583,6 @@ def clip_corners_not_right(corners, img, average_filter_size):
 
 
 
-# def clip_corners_not_right(corners, img, average_filter_size):
-
-#     bw_edges = cv2.Canny(img,100,200)
-#     radius = np.int0(average_filter_size / 2.0)
-#     center = (radius, radius)
-
-
-#     bw_circles = np.zeros((average_filter_size, average_filter_size), np.uint8)
-#     bw_canvas = np.zeros((360, 640, 1), np.uint8)
-
-#     cv2.circle(bw_circles, center, radius, (255,0,0), 1)
-
-#     circle = np.where(bw_circles==255)
-#     # circle_new = np.array([circle[0], circle[1]])
-
-#     for corner in corners:
-#         shift_center = corner - center
-#         shifted_circle = np.array([circle[0]+shift_center[0], circle[1]+shift_center[1]])
-
-
-#         bw_canvas[shifted_circle[0], shifted_circle[1]] = 255
-
-
-#     bw_corner_area = cv2.bitwise_and(bw_canvas, bw_edges)
-
-
-
-#     hsv_save_image(bw_edges, "bw_edges", is_gray=True)
-#     hsv_save_image(bw_canvas, "bw_circles", is_gray=True)
-#     hsv_save_image(bw_corner_area, "bw_draft", is_gray=True)
-
-#     return corners
-
-# def clip_corners_not_right(corners, img, average_filter_size):
-#     bw_draft = img.copy()
-#     bw_circles = np.zeros((360,640,1), np.uint8)
-
-#     ret, bw_thresh = cv2.threshold(bw_draft, 127, 255, 0)
-
-#     min_angle = 80
-#     max_angle = 100
-
-#     min_area = min_angle / 360.0
-#     max_area = max_angle / 360.0
-
-
-
-#     radius = np.int0(average_filter_size/2.0)
-#     color = (255,0,0)
-#     thickness = -1
-
-#     for corner in corners:
-#         center = (corner[1], corner[0])
-#         print center
-#         cv2.circle(bw_circles, center, radius, color, thickness)
-#         bw_area = cv2.bitwise_and(bw_circles, bw_thresh)
-#         # bw_corner_area = cv2.bitwise_and(bw_circles, bw_edges)
-#         result = np.where(bw_corner_area == 255)
-
-#         if len(result[0]) != 0:
-#             print len(result[0])
-#             break
-
-
-
-
-#     hsv_save_image(bw_circles, "bw_circles", is_gray=True)
-#     hsv_save_image(bw_area, "bw_edges", is_gray=True)
-#     # hsv_save_image(bw_corner_area, "bw_draft", is_gray=True)
-
-#     print "Clip_corners_not_right done"
-#     print
-
-#     return corners
-
-
 def find_right_angled_corners(img):
     # Parameters ###########################
     ignore_border_size = 7 # 7, 20
@@ -757,12 +600,6 @@ def find_right_angled_corners(img):
     if corners is None:
         return None, None
 
-    # corners, intensities = clip_corners_on_intensity(corners, img, average_filter_size)
-    # if corners is None:
-    #     return None, None
-    # intensities = None
-
-    # return corners, intensities
     return corners, intensities
 
 
@@ -785,10 +622,6 @@ def find_orange_arrowhead(hsv):
     ideal_intensity = 191 # 75% of 255
     ideal_intensities = np.array([ideal_intensity]*number_of_corners_found)
 
-    # print orange_corners
-    # print intensities
-    # print ideal_intensities
-
     diff_intensities = np.absolute(np.array(ideal_intensities-intensities))
 
     if number_of_corners_found == 1:
@@ -804,7 +637,7 @@ def find_orange_arrowhead(hsv):
 
 
 def calculate_position(center_px, radius_px):
-    focal_length = 374.67
+    focal_length = 374.67 if cfg.is_simulator else 720.0 # but acutally 687.0
     real_radius = 390 # mm (780mm in diameter / 2)
 
     # Center of image

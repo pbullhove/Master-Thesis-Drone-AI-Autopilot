@@ -4,7 +4,7 @@ Color settings for the tcv module - pose_estimate/tcv.py
 HSV = ([0,360], [0,100], [0,100])
 """
 
-use_real_outdoor = False
+use_real_outdoor = True
 
 #############
 # Simulator #

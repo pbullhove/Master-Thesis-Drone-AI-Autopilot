@@ -7,7 +7,7 @@ import numpy as np
 import math
 
 # General
-is_simulator = True
+is_simulator = False
 
 default_setpoint = np.array([0.1, 0, 1.5, 0, 0, 0])
 
@@ -56,17 +56,17 @@ if is_simulator:
     ####################
 
 else:
-    Kp_position_x = 0.05
+    Kp_position_x = 0.10
     Ki_position_x = 0.0
-    Kd_position_x = 10
+    Kd_position_x = 0.1
     ####################
     Kp_position_y = Kp_position_x
     Ki_position_y = Ki_position_x
     Kd_position_y = Kd_position_x
     ####################
-    Kp_position_z = 0.5
+    Kp_position_z = 0.30
     Ki_position_z = 0.001
-    Kd_position_z = 20
+    Kd_position_z = 0.1
     ####################
     Kp_orientation = 0.0
     Ki_orientation = 0.0
