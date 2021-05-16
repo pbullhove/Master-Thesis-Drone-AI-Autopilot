@@ -64,7 +64,7 @@ else:
     Ki_position_y = Ki_position_x
     Kd_position_y = Kd_position_x
     ####################
-    Kp_position_z = 0.30
+    Kp_position_z = 0.10
     Ki_position_z = 0.001
     Kd_position_z = 0.1
     ####################
