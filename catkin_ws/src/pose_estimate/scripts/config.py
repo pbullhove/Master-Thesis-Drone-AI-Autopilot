@@ -10,6 +10,7 @@ import math
 is_simulator = True
 do_calibration_before_start = False
 num_calib_steps = 1000
+vel_estimate_limit = 0.7
 
 # CV module
 save_images = False

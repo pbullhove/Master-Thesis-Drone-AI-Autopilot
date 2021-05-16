@@ -22,6 +22,7 @@ Subscribes to:
     /estimate/tcv: Twist - Pose estimates from the tcv CV method.
     /mock_gps: Twist - Pose estimates from the simulator mock gps.
     /ardrone/navdata: Odometry - Odometry data from ardrone.
+    /ardrone/takeoff: Empty - To reset integrated velocities on takeoff.
 
 Publishes to:
     /filtered_estimate: Twist - the current estimated quadcopter pose
@@ -46,19 +47,21 @@ P = np.eye(6)
 P_v = np.eye(3)
 prev_KFU_t = 0
 
-C_yolo = np.eye(6)
+C_dnnCV = np.eye(6)
 C_tcv = np.eye(6)
 C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
 C_sonar = np.array([0,0,1,0,0,0]).reshape((1,6))
 C_baro = np.array([0,0,1,0,0,0]).reshape((1,6))
 
-R_yolo = 0.1*np.eye(6)
+R_dnnCV = 0.1*np.eye(6)
 R_tcv = 0.1*np.eye(6)
 R_gps = 0.1*np.eye(3)
 R_sonar = 0.1*np.eye(1)
 R_baro = 3*np.eye(1)
 
 Q_imu = 1*np.diag([1, 1, 1, 0, 0, 1])
+Q_imu_vel = 3*np.diag([1, 1, 1])
+
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
 calibration_acc = np.array([0.0, 0.0, 0.0])
@@ -73,18 +76,18 @@ vel_decay = 0.0
 prev_imu_yaw = None
 prev_navdata_timestamp = None
 
-t_prev_range = None
-t_prev_gps = None
-t_prev_dnn = None
-t_prev_tcv = None
 y_prev_range = None
-y_prev_gps = None
-y_prev_dnn = None
+t_prev_range = None
 y_prev_tcv = None
+t_prev_tcv = None
+y_prev_gps = None
+t_prev_gps = None
+y_prev_dnnCV = None
+t_prev_dnnCV = None
 
-def kalman_gain(P_k,C,R):
+def kalman_gain(P,C,R):
     """ Computes the Kalman Gain which specifies how much to update x_est given a new measurement. """
-    PCT = np.dot(P_k, C.T)
+    PCT = np.dot(P, C.T)
     IS = R + np.dot(C, PCT)
     IS_inv = np.linalg.inv(IS)
     K = np.dot(PCT,IS_inv)
@@ -92,7 +95,7 @@ def kalman_gain(P_k,C,R):
 
 def P_post(P, C, K):
     """ Updating P after updateing x_est on new data"""
-    P = np.dot((np.eye(6) - np.dot(K,C)), P)
+    P = np.dot((np.eye(np.shape(P)[0]) - np.dot(K,C)), P)
     return P
 
 def P_apri(P, Q):
@@ -123,46 +126,56 @@ def KF_update(R,C,y):
     x_est[5] = hlp.angleFromTo(x_est[5], -180, 180)
     P = P_post(P,C,K)
 
-def KF_vel_update(R, C, y, sensor_name):
+def KF_vel_update(R, C, y, y_prev, t_prev):
     global v_est
     global P_v
-    if sensor_name == "range":
-        t_prev =
-    try:
-        delta_t = datetime.now() - t_prev
-        prev_KFU_t = datetime.now()
-    except TypeError as e:
-        return
+    C = C[:,0:3]
+    R = R[:,0:3]
+    now = datetime.now()
+    delta_t = (now - t_prev).total_seconds()
     y_vel = (y - y_prev)/delta_t
-    K = kalman_gain(P_v, C, R)
-    vel_innov = y_vel - np.dot(C[:,0:3], v_est)
-    v_est = v_est + np.dot(K, vel_innov)
-    P_v = P_post(P,C,K)
+    if (np.absolute(y_vel) < cfg.vel_estimate_limit).all():
+        K = kalman_gain(P_v, C, R)
+        vel_innov = y_vel - np.dot(C, v_est)
+        v_est = v_est + np.dot(K, vel_innov)
+        P_v = P_post(P_v,C,K)
+        return y, now
+    return y, now
 
 
-def yolo_estimate_callback(data):
-    """ Filters pose estimates from yolo cv algorithm. Estimates pos in xyz and yaw. Only use this if more than 0.7m above platform, as camera view too close for correct estimates. """
-    global x_est
-    global P
-    yolo_estimate = hlp.twist_to_array(data)
-    if x_est[2] > 0.7 or yolo_estimate[2] > 0.7:
-        if yolo_estimate[5] == 0.0: #if no estimate for yaw
-            C = C_gps
-            y = yolo_estimate[0:3]
-            R = R_yolo[0:3,0:3]
+def dnnCV_estimate_callback(data):
+    """ Filters pose estimates from dnnCV cv algorithm. Estimates pos in xyz and yaw. Only use this if more than 0.7m above platform, as camera view too close for correct estimates. """
+    global t_prev_dnnCV
+    global y_prev_dnnCV
+    dnnCV_estimate = hlp.twist_to_array(data)
+    if x_est[2] > 0.7 or dnnCV_estimate[2] > 0.7:
+        if dnnCV_estimate[5] == 0.0: #if no estimate for yaw
+            C = C_dnnCV[0:3,:]
+            y = dnnCV_estimate[0:3]
+            R = R_dnnCV[0:3,0:3]
         else:
-            C = C_yolo
-            R = R_yolo
-            y = yolo_estimate
+            C = C_dnnCV
+            R = R_dnnCV
+            y = dnnCV_estimate
         KF_update(R,C,y)
-
+        try:
+            if (datetime.now() - t_prev_dnnCV).total_seconds() < 1:
+                y_prev_dnnCV, t_prev_dnnCV = KF_vel_update(R_dnnCV[0:3,0:3]*4, C[0:3,0:3], y[0:3], y_prev_dnnCV, t_prev_dnnCV)
+            else:
+                t_prev_dnnCV = datetime.now()
+                y_prev_dnnCV = y
+        except TypeError  as e:
+            t_prev_dnnCV = datetime.now()
+            y_prev_dnnCV = y[0:3]
 
 def tcv_estimate_callback(data):
+    global t_prev_tcvf
+    global y_prev_tcv
     """ Filters pose estimates from tcv cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.4m above platform, as camera view too close for correct estimates. """
     tcv_estimate = hlp.twist_to_array(data)
     if x_est[2] > 0.4 or tcv_estimate[2] > 0.4:
         if tcv_estimate[5] == 0.0 or tcv_estimate[5] == -0.0: #if no estimate for yaw
-            C = C_gps
+            C = C_dnnCV[0:3,:]
             y = tcv_estimate[0:3]
             R = R_tcv[0:3,0:3]
         else:
@@ -170,13 +183,34 @@ def tcv_estimate_callback(data):
             R = R_tcv
             y = tcv_estimate
         KF_update(R,C,y)
+        try:
+            if (datetime.now() - t_prev_tcv).total_seconds() < 1:
+                y_prev_tcv, t_prev_tcv = KF_vel_update(R_tcv[0:3,0:3]*4, C[0:3,0:3], y[0:3], y_prev_tcv, t_prev_tcv)
+            else:
+                t_prev_tcv = datetime.now()
+                y_prev_tcv = y
+        except TypeError  as e:
+            t_prev_tcv = datetime.now()
+            y_prev_tcv = y[0:3]
+
 
 
 def gps_callback(data):
     """ Filters gps data which is measurement of position in xyz. """
+    global t_prev_gps
+    global y_prev_gps
     gps_measurement = hlp.twist_to_array(data)
     y = gps_measurement[0:3]
     KF_update(R_gps, C_gps, y)
+    try:
+        if (datetime.now() - t_prev_gps).total_seconds() < 1:
+            y_prev_gps, t_prev_gps = KF_vel_update(R_gps*4, C_gps, y, y_prev_gps, t_prev_gps)
+        else:
+            t_prev_gps = datetime.now()
+            y_prev_gps = y
+    except TypeError  as e:
+        t_prev_gps = datetime.now()
+        y_prev_gps = y
 
 
 
@@ -196,6 +230,7 @@ def navdata_callback(data):
     global x_est
     global v_est
     global P
+    global P_v
     global Q_imu
     global prev_imu_yaw
     global calib_steps
@@ -205,6 +240,8 @@ def navdata_callback(data):
     global calibration_pressure
     global calib_roll
     global calib_pitch
+    global t_prev_range
+    global y_prev_range
     if cfg.do_calibration_before_start and calib_steps < cfg.num_calib_steps:
         calibration_vel += np.array([data.vx, data.vy, data.vz])/float(cfg.num_calib_steps)
         calibration_acc += np.array([data.ax, data.ay, data.az - 1])*ONE_g/float(cfg.num_calib_steps)
@@ -227,22 +264,22 @@ def navdata_callback(data):
     finally:
         prev_imu_yaw = data.rotZ
 
-    vel = (np.array([data.vx, data.vy, data.vz]) - calibration_vel)/1000
+    # vel = (np.array([data.vx, data.vy, data.vz]) - calibration_vel)/1000
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
     p = hlp.deg2rad(data.rotY - calib_pitch)
     r = hlp.deg2rad(data.rotX - calib_roll)
     gravity_vec = ONE_g*np.array([-math.sin(p),math.cos(p)*math.sin(r), math.cos(p)*math.cos(r)])
     acc -= gravity_vec
-    extreme_values_filter_val = np.logical_and(np.less(vel, low_vel_limit), np.greater(vel, -low_vel_limit))
+    # extreme_values_filter_val = np.logical_and(np.less(vel, low_vel_limit), np.greater(vel, -low_vel_limit))
     extreme_values_filter_acc = np.logical_and(np.less(acc, low_acc_limit), np.greater(acc, -low_acc_limit))
-    vel[extreme_values_filter_val] = 0.0
+    # vel[extreme_values_filter_val] = 0.0
     acc[extreme_values_filter_acc] = 0.0
 
 
     v_est *= 1-vel_decay
     v_est += delta_t*acc
-    v_est = np.array([max(-0.7,i) for i in v_est])
-    v_est = np.array([min(0.7,i) for i in v_est])
+    v_est = np.array([max(-cfg.vel_estimate_limit,i) for i in v_est])
+    v_est = np.array([min(cfg.vel_estimate_limit,i) for i in v_est])
     delta_pos = delta_t*v_est + 0.5*acc*delta_t**2
 
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
@@ -251,17 +288,40 @@ def navdata_callback(data):
     r = R.from_euler('z', -np.radians(delta_yaw))
     x_est[0:3] = r.apply(x_est[0:3])
     P = P_apri(P, Q_imu)
+    P_v = P_apri(P_v, Q_imu_vel)
     x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
 
     y = data.pressure # Z measurement for real QC
     if y > 0.0:
         y = calibration_pressure - y
-        y/= 11.3
+        y /= 11.3
         KF_update(R_baro, C_baro, y)
+        try:
+            if (datetime.now() - t_prev_range).total_seconds() < 1:
+                if np.absolute(y - y_prev_range) > 0.01:
+                    y_prev_range, t_prev_range = KF_vel_update(R_baro*4, C_baro, y, y_prev_range, t_prev_range)
+            else:
+                t_prev_range = datetime.now()
+                y_prev_range = y
+        except TypeError  as e:
+            t_prev_range = datetime.now()
+            y_prev_range = y
 
     y = data.altd # Z measurement for simulated QC
-    if y != 0.0:
-        KF_update(R_sonar, C_sonar, y/1000.0)
+    if y > 0.0:
+        y /= 1000.0
+        KF_update(R_sonar, C_sonar, y)
+        try:
+            if (datetime.now() - t_prev_range).total_seconds() < 1:
+                if np.absolute(y - y_prev_range) != 0.0:
+                    y_prev_range, t_prev_range = KF_vel_update(R_sonar*4, C_sonar, y, y_prev_range, t_prev_range)
+            else:
+                t_prev_range = datetime.now()
+                y_prev_range = y
+        except TypeError  as e:
+            t_prev_range = datetime.now()
+            y_prev_range = y
+
 
 
 def main():
@@ -269,7 +329,7 @@ def main():
     global calib_steps
     rospy.init_node('combined_filter', anonymous=True)
 
-    rospy.Subscriber('/estimate/dnnCV', Twist, yolo_estimate_callback)
+    rospy.Subscriber('/estimate/dnnCV', Twist, dnnCV_estimate_callback)
     rospy.Subscriber('/estimate/tcv', Twist, tcv_estimate_callback)
     rospy.Subscriber('/mock_gps', Twist, gps_callback)
     rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
