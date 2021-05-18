@@ -10,6 +10,7 @@
 import rospy
 
 from geometry_msgs.msg import Twist
+from ardrone_autonomy.msg import Navdata
 from darknet_ros_msgs.msg import BoundingBox
 from darknet_ros_msgs.msg import BoundingBoxes
 
@@ -35,6 +36,13 @@ def gt_callback(data):
     global_ground_truth = data
     # global_ground_truth = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
+qc_pitch = None
+qc_roll = None
+def navdata_callback(data):
+    global qc_pitch
+    global qc_roll
+    qc_roll = deg2rad(data.rotX)
+    qc_pitch = deg2rad(data.rotY)
 
 global_bounding_boxes = None
 def bb_callback(data):
@@ -75,11 +83,22 @@ def transform_pixel_position_to_world_coordinates(center_px, radius_px):
     est_y = -(est_z * d_y / focal_length)
     est_z += camera_offset_z # mm adjustment for translated camera frame in z direction
 
-    est = Twist()
-    est.linear.x = est_x / 1000.0
-    est.linear.y = est_y / 1000.0
-    est.linear.z = est_z / 1000.0
+    # Compensation for angled camera.
 
+    cr, cp = math.cos(qc_roll), math.cos(qc_pitch)
+    sr, sp = math.sin(qc_roll), math.sin(qc_pitch)
+
+    x = est_x + est_z*sp*0.5
+    y = est_y - est_z*sr*0.7
+    z = est_z * cr * cp
+    # x=est_x
+    # y = est_y
+    z = est_z
+
+    est = Twist()
+    est.linear.x = x / 1000.0
+    est.linear.y = y / 1000.0
+    est.linear.z = z / 1000.0
     return est
 
 
@@ -210,6 +229,7 @@ def main():
     rospy.Subscriber('/drone_ground_truth', Twist, gt_callback)
     rospy.Subscriber('/darknet_ros/bounding_boxes', BoundingBoxes, bb_callback)
     rospy.Subscriber('/filtered_estimate', Twist, filtered_estimate_callback)
+    rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
     pub_est = rospy.Publisher("/estimate/dnnCV", Twist, queue_size=10)
     pub_ground_truth = rospy.Publisher('/drone_ground_truth', Twist, queue_size=10)
     pub_error = rospy.Publisher("/estimate_error/dnn_error", Twist, queue_size=10)

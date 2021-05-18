@@ -58,7 +58,7 @@ if is_simulator:
 else:
     Kp_position_x = 0.10
     Ki_position_x = 0.0
-    Kd_position_x = 0.1
+    Kd_position_x = 0.5
     ####################
     Kp_position_y = Kp_position_x
     Ki_position_y = Ki_position_x
