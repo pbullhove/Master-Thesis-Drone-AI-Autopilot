@@ -11,7 +11,7 @@ P = error covariance matrix, meaning how uncertain is the current x_est.
 Sensors:
 - Camera: (two methods, dnnCV, and tcv)
 - IMU: drone velocities and accelerations
-- Sonar: drone altitude
+- Barometer: drone altitude
 - Mock gps: in the simulated environmet, not available on real ardrone.
 
 Tune Kalman Filter by changing R-values for the desired sensors, where R specifies measurement noise,
@@ -26,6 +26,7 @@ Subscribes to:
 
 Publishes to:
     /filtered_estimate: Twist - the current estimated quadcopter pose
+    /filtered_estimate_vel: Twist - the current estimated quadcopter velocity.
 """
 import rospy
 import numpy as np
@@ -51,17 +52,15 @@ prev_KFU_t = 0
 C_dnnCV = np.eye(6)
 C_tcv = np.eye(6)
 C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
-C_sonar = np.array([0,0,1,0,0,0]).reshape((1,6))
 C_baro = np.array([0,0,1,0,0,0]).reshape((1,6))
 
-R_dnnCV = 5*np.eye(6) # 10hz
-R_tcv = 40*np.diag([1,1,1,1,1,1000]) # 10hz
-R_gps = 1*np.eye(3) # 2 hz
-R_sonar = 500*np.eye(1) # 200hz
-R_baro = 500*np.eye(1) # 200hz
+R_dnnCV = (0.4**2)*np.eye(6) # 10hz
+R_tcv = (0.1**2)*np.diag([1,1,1,1,1,1000]) # 10hz
+R_gps = (0.1**2)*np.eye(3) # 2 hz
+R_baro = (0.7**2)*np.eye(1) # 200hz
 
-Q_imu = 2*np.diag([1, 1, 1, 0, 0, 1])
-Q_imu_vel = 1*np.diag([1, 1, 1])
+Q_imu = 0.01*np.diag([1, 1, 1, 0, 0, 1])
+Q_imu_vel = 0.01*np.diag([1, 1, 1])
 
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
@@ -144,12 +143,14 @@ def KF_vel_update(R, C, y, y_prev, t_prev):
     now = datetime.now()
     delta_t = (now - t_prev).total_seconds()
     y_vel = (y - y_prev)/delta_t
-    if (np.absolute(y_vel) < cfg.vel_estimate_limit).all():
-        K = kalman_gain(P_v, C, R)
-        vel_innov = y_vel - np.dot(C, v_est)
-        v_est = v_est + np.dot(K, vel_innov)
-        P_v = P_post(P_v,C,K)
-        return y, now
+    y_vel = np.array([min(cfg.vel_estimate_limit, i) for i in y_vel])
+    y_vel = np.array([max(-cfg.vel_estimate_limit, i) for i in y_vel])
+    K = kalman_gain(P_v, C, R)
+    vel_innov = y_vel - np.dot(C, v_est)
+    vel_innov = np.array([min(cfg.vel_innov_limit, i) for i in vel_innov])
+    vel_innov = np.array([max(-cfg.vel_innov_limit, i) for i in vel_innov])
+    v_est = v_est + np.dot(K, vel_innov)
+    P_v = P_post(P_v,C,K)
     return y, now
 
 
@@ -195,7 +196,7 @@ def tcv_estimate_callback(data):
         KF_update(R,C,y)
         try:
             if (datetime.now() - t_prev_tcv).total_seconds() < 1:
-                y_prev_tcv, t_prev_tcv = KF_vel_update(R_tcv[0:3,0:3]*4, C[0:3,0:3], y[0:3], y_prev_tcv, t_prev_tcv)
+                y_prev_tcv, t_prev_tcv = KF_vel_update(R_tcv[0:3,0:3]*10, C[0:3,0:3], y[0:3], y_prev_tcv, t_prev_tcv)
             else:
                 t_prev_tcv = datetime.now()
                 y_prev_tcv = y[0:3]
@@ -236,7 +237,7 @@ def takeoff_callback(data):
 def navdata_callback(data):
     """
     Filters estimates from the IMU data and predicts quadcopter pose.
-    Updates estimate with barometric pressure data (real) or sonar data (simulator).
+    Updates estimate with barometric pressure data.
 
     Performs calibration before start by setting calibration_vel, calibration_acc to average of standstill values for about 5 seconds.
     Does not publish any estimates before after calibration. Toggle calibration in config.
@@ -301,7 +302,7 @@ def navdata_callback(data):
     v_est += delta_t*acc
     v_est = np.array([max(-cfg.vel_estimate_limit,i) for i in v_est])
     v_est = np.array([min(cfg.vel_estimate_limit,i) for i in v_est])
-    delta_pos = delta_t*v_est + 0.5*acc*delta_t**2
+    delta_pos = delta_t*v_est
     delta_pos = np.zeros(3)
 
     """ Predicting x_est based on v_est and delta_yaw."""
@@ -311,10 +312,14 @@ def navdata_callback(data):
     x_est[0:3] = r.apply(x_est[0:3])
     P = P_apri(P, Q_imu)
     P_v = P_apri(P_v, Q_imu_vel)
+    x_est[3] = data.rotX
+    x_est[4] = data.rotY
     x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
 
-    """ Update x_est and v_est based on sonar data (simulator) or barometric data (real). """
+    """ Update x_est and v_est based or barometric data. """
     y = data.pressure # Z measurement for real QC
+    if cfg.is_simulator: # simulated qc does not have barometer. Use simulated height to generate sonar data.
+        y = - data.altd * 11.3 / 1000.0
     if y > 0.0:
         y = calibration_pressure - y
         y /= 11.3 # pressure to height constant
@@ -322,34 +327,16 @@ def navdata_callback(data):
         try:
             if (datetime.now() - t_prev_range).total_seconds() < 1:
                 if np.absolute(y - y_prev_range) > 0.01:
-                    y_prev_range, t_prev_range = KF_vel_update(R_baro*4, C_baro, y, y_prev_range, t_prev_range)
+                    y_prev_range, t_prev_range = KF_vel_update(R_baro*10, C_baro, y, y_prev_range, t_prev_range)
             else:
                 t_prev_range = datetime.now()
                 y_prev_range = y
         except TypeError  as e:
             t_prev_range = datetime.now()
             y_prev_range = y
-
-    y = data.altd # Z measurement for simulated QC
-    if y > 0.0:
-        y /= 1000.0
-        KF_update(R_sonar, C_sonar, y)
-        try:
-            if (datetime.now() - t_prev_range).total_seconds() < 1:
-                if np.absolute(y - y_prev_range) != 0.0:
-                    y_prev_range, t_prev_range = KF_vel_update(R_sonar*4, C_sonar, y, y_prev_range, t_prev_range)
-            else:
-                t_prev_range = datetime.now()
-                y_prev_range = y
-        except TypeError  as e:
-            t_prev_range = datetime.now()
-            y_prev_range = y
-
 
 
 def main():
-    global x_est
-    global calib_steps
     rospy.init_node('combined_filter', anonymous=True)
 
     rospy.Subscriber('/estimate/dnnCV', Twist, dnnCV_estimate_callback)
@@ -359,6 +346,7 @@ def main():
     rospy.Subscriber('/ardrone/takeoff', Empty, takeoff_callback)
 
     filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
+    filtered_vel_pub = rospy.Publisher('/filtered_estimate_vel', Twist, queue_size=10)
 
     rospy.loginfo("Starting combined filter for estimate")
 
@@ -366,9 +354,12 @@ def main():
     rate = rospy.Rate(30) # Hz
     while not rospy.is_shutdown():
         if not cfg.do_calibration_before_start or calib_steps >= cfg.num_calib_steps:
-            x_est = [round(i,5) for i in x_est]
-            msg = hlp.to_Twist(x_est)
+            x = [round(i,5) for i in x_est]
+            msg = hlp.to_Twist(x)
+            v = [round(i,5) for i in v_est] + [0,0,0]
+            vel_msg = hlp.to_Twist(v)
             filtered_estimate_pub.publish(msg)
+            filtered_vel_pub.publish(vel_msg)
             # rospy.loginfo(v_est)
         else:
             print('calibrating')

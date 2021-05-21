@@ -227,7 +227,8 @@ def main():
         Will trainsitions are handled by the function transition_to(new_state).
         """
         if state not in [ERROR, IDLE, INIT] and error_timer.is_timeout():
-            state = ERROR
+            print('error timer - timeOut!')
+            transition_to(ERROR)
 
         elif state == INIT:
             if init_complete():
