@@ -116,6 +116,11 @@ def take_off_callback(data):
     global error_integral
     error_integral = np.array([0.0]*6)
 
+use_gt = False
+def toggle_gt_feedback(data):
+    global use_gt
+    use_gt = not use_gt
+    print('Use gt: ', use_gt)
 
 def controller(state):
     """ Calculates the desired control signals (actuation) for the quadcopter in order to reach the desired pose.
@@ -166,8 +171,7 @@ def main():
     global bf_setpoint
     rospy.init_node('pid_controller', anonymous=True)
 
-    use_estimate = True
-    if use_estimate:
+    if not use_gt:
         rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
     else:
         rospy.Subscriber('/drone_ground_truth', Twist, estimate_callback)
@@ -175,6 +179,8 @@ def main():
     rospy.Subscriber('/set_point', Twist, set_point_callback)
     rospy.Subscriber('/ardrone/takeoff', Empty, take_off_callback)
     rospy.Subscriber('/pid_on_off', Bool, pid_on_off_callback)
+    rospy.Subscriber('/toggle_gt_feedback', Empty, toggle_gt_feedback)
+
     control_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
     time.sleep(1)

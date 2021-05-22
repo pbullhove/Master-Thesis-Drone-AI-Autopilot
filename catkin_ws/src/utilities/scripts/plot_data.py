@@ -238,9 +238,11 @@ def est_plot_comb_filtered(time, gt, yolo, tcv, filtered, savename):
 
 def main():
     data = Data()
-    data.load_data('unnamed.npy')
-
+    data.load_data('hover.npy')
     est_plot(data.time, data.ground_truth, data.filtered_estimate, "testplot")
+
+
+
     # est_plot(data.time, data.ground_truth, data.imu, "testplot")
 
     # for file in os.listdir("./catkin_ws/src/uav_vision/data_storage"):

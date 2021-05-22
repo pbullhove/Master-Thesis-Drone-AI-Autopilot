@@ -223,6 +223,8 @@ class SimpleKeyTeleop():
         self._pub_take_still_photo_bottom = rospy.Publisher('/take_still_photo_bottom', Empty)
         self._pub_initiate_automated_landing = rospy.Publisher('/initiate_automated_landing', Empty)
         self._pub_start_data_collection = rospy.Publisher('/start_data_collection', Empty)
+        self._pub_toggle_gt_feedback = rospy.Publisher('/toggle_gt_feedback', Empty)
+
         self._pub_takeoff = rospy.Publisher('/ardrone/takeoff', Empty, queue_size=10)
         self._pub_land = rospy.Publisher('ardrone/land', Empty, queue_size=10)
 
@@ -316,9 +318,13 @@ class SimpleKeyTeleop():
         elif keycode == ord('l'): # land
             self._land = 1
         elif keycode == ord('p'):
-            self._controller_on = 1
+            self._pub_ctr_switch.publish(Bool(1))
+            self._controller_on = True
+        elif keycode == ord('g'):
+            self._pub_toggle_gt_feedback.publish(Empty())
         elif keycode == ord('o'):
-            self._controller_on = 0
+            self._pub_ctr_switch.publish(Bool(0))
+            self._controller_on = False
         elif keycode == ord('1'):
             self._pub_take_still_photo_bottom.publish(Empty())
         elif keycode == ord('2'):
@@ -353,10 +359,10 @@ class SimpleKeyTeleop():
             self._pub_land.publish(Empty())
             self._land = 0
 
-        ctr_switch_msg = Bool()
-        ctr_switch_msg.data = self._controller_on
-
-        self._pub_ctr_switch.publish(ctr_switch_msg)
+        # ctr_switch_msg = Bool()
+        # ctr_switch_msg.data = self._controller_on
+        #
+        # self._pub_ctr_switch.publish(ctr_switch_msg)
 
 
 def main(stdscr):

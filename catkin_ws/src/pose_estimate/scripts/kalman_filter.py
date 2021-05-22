@@ -56,7 +56,7 @@ C_baro = np.array([0,0,1,0,0,0]).reshape((1,6))
 
 R_dnnCV = (0.02**2)*np.eye(6) # 10hz
 R_tcv = (0.01**2)*np.diag([1,1,1,1,1,1000]) # 10hz
-R_gps = (0.1**2)*np.eye(3) # 2 hz
+R_gps = (0.5**2)*np.eye(3) # 2 hz
 R_baro = (0.3**2)*np.eye(1) # 200hz
 
 Q_imu = 0.01*np.diag([1, 1, 1, 0, 0, 1])
