@@ -8,33 +8,86 @@ import time
 import sys
 import os
 
-def load_data(filename):
-    folder = './catkin_ws/src/uav_vision/data_storage/'
-    data = np.load(folder + filename, allow_pickle=True)
 
-    n = len(data)
-    t_i = 0
-    gt_i = 1
-    yolo_i = gt_i + 6
-    tcv_i = yolo_i + 6
-    yolo_error_i = tcv_i + 6
-    filtered_i = yolo_error_i + 6
 
-    time = np.zeros(n)
-    gt = np.zeros((n,6))
-    yolo = np.zeros((n,6))
-    tcv = np.zeros((n,6))
-    yolo_error = np.zeros((n,6))
-    filtered = np.zeros((n,6))
-    for i, data_point in enumerate(data):
-        time[i] = data_point[t_i]
-        gt[i] = data_point[gt_i:gt_i+6]
-        yolo[i] = data_point[yolo_i:yolo_i+6]
-        tcv[i] = data_point[tcv_i:tcv_i+6]
-        yolo_error[i] = data_point[yolo_error_i:yolo_error_i+6]
-        filtered[i] = data_point[filtered_i:filtered_i+6]
+class Data():
+    def __init__(self):
+        self.time = []
+        self.ground_truth = []
+        self.filtered_estimate = []
+        self.dnnCV = []
+        self.tcv = []
+        self.barometer = []
+        self.imu = []
 
-    return time, gt, yolo, tcv, yolo_error, filtered
+        self.filtered_estimate_error = []
+        self.dnnCV_error = []
+        self.tcv_error = []
+        self.barometer_error = []
+        self.imu_error = []
+
+    def load_data(self, filename):
+        folder = './catkin_ws/src/utilities/data_storage/'
+        data = np.load(folder + filename, allow_pickle=True)
+
+        n = len(data)
+
+
+        self.time = np.zeros(n)
+        self.ground_truth = np.zeros((n,6))
+        self.set_point = np.zeros((n,6))
+        self.filtered_estimate = np.zeros((n,6))
+        self.tcv = np.zeros((n,6))
+        self.dnnCV = np.zeros((n,6))
+        self.gps = np.zeros((n,3))
+        self.barometer = np.zeros(n)
+        self.imu = np.zeros((n,6))
+
+        self.set_point_error = np.zeros((n,6))
+        self.filtered_estimate_error = np.zeros((n,6))
+        self.tcv_error = np.zeros((n,6))
+        self.dnnCV_error = np.zeros((n,6))
+        self.gps_error = np.zeros((n,3))
+        self.barometer_error = np.zeros((n,6))
+        self.imu_error = np.zeros((n,6))
+
+        t_i = 0
+        gt_i = 1
+        set_point_i = gt_i + 6
+        filtered_estimate_i = set_point_i + 6
+        tcv_i = filtered_estimate_i + 6
+        dnnCV_i = tcv_i + 6
+        gps_i = dnnCV_i + 6
+        barometer_i = gps_i + 6
+        imu_i = barometer_i + 6
+
+        set_point_error_i = imu_i + 6
+        filtered_estimate_error_i = set_point_error_i + 6
+        tcv_error_i = filtered_estimate_error_i + 6
+        dnnCV_error_i = tcv_error_i + 6
+        gps_error_i = dnnCV_error_i + 6
+        barometer_error_i = gps_error_i + 6
+        imu_error_i = barometer_error_i + 6
+
+        for i, data_point in enumerate(data):
+            self.time[i] = data_point[t_i]
+            self.ground_truth[i,:] = data_point[gt_i:gt_i+6]
+            self.set_point[i,:] = data_point[set_point_i:set_point_i+6]
+            self.filtered_estimate[i,:] = data_point[filtered_estimate_i:filtered_estimate_i+6]
+            self.tcv[i,:] = data_point[tcv_i:tcv_i + 6]
+            self.dnnCV[i,:] = data_point[dnnCV_i:dnnCV_i+6]
+            self.gps[i,:] = data_point[gps_i:gps_i + 6][0:3]
+            self.barometer[i] = data_point[barometer_i:barometer_i+6][2]
+            self.imu[i,:] = data_point[imu_i:imu_i+6]
+
+            self.set_point_error[i,:] = data_point[set_point_error_i:set_point_error_i+6]
+            self.filtered_estimate_error[i,:] = data_point[filtered_estimate_error_i:filtered_estimate_error_i+6]
+            self.tcv_error[i,:] = data_point[tcv_error_i:tcv_error_i+6]
+            self.dnnCV_error[i,:] = data_point[dnnCV_error_i:dnnCV_error_i + 6]
+            self.gps_error[i,:] = data_point[gps_error_i:gps_error_i+6][0:3]
+            self.barometer_error[i] = data_point[barometer_error_i:barometer_error_i+6][2]
+            self.imu_error[i,:] = data_point[imu_error_i:imu_error_i+6]
+
 
 
 def plot_xyz(time, gt, est, savename):
@@ -45,7 +98,7 @@ def plot_xyz(time, gt, est, savename):
     gt, = plt.plot( gt[:,0], gt[:,1], gt[:,2])
     plt.legend([est, gt], ['estimate x,y, z', 'ground truth x, y, z'])
 
-    folder = './catkin_ws/src/uav_vision/data_storage/plots/'
+    folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
     fig.tight_layout()
     # fig.show()
@@ -62,7 +115,7 @@ def plot_xy(time, gt, est, savename):
     gt, = plt.plot(gt[:,0], gt[:,1])
     plt.legend([e, gt], ['estimate x,y', 'ground truth x, y'])
 
-    folder = './catkin_ws/src/uav_vision/data_storage/plots/'
+    folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
     fig.tight_layout()
     # fig.show()
@@ -92,7 +145,7 @@ def est_plot(time, gt, est, savename):
         gt_line, = ax.plot(time,gt[:,k], color='r')
         plt.legend([data_line, gt_line],[legend_values[i],'ground truth'])
 
-    folder = './catkin_ws/src/uav_vision/data_storage/plots/'
+    folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
 
     fig.tight_layout()
@@ -126,7 +179,7 @@ def est_plot_comb(time, gt, yolo, tcv, savename):
         gt_line, = ax.plot(time,gt[:,k], color='r')
         plt.legend([yolo_line, tcv_line, gt_line],[yolo_legend_values[i],tcv_legend_values[i], 'ground truth'])
 
-    folder = './catkin_ws/src/uav_vision/data_storage/plots/'
+    folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
 
     fig.tight_layout()
@@ -162,7 +215,7 @@ def est_plot_comb_filtered(time, gt, yolo, tcv, filtered, savename):
         gt_line, = ax.plot(time,gt[:,k], color='r')
         plt.legend([yolo_line, tcv_line, filtered_line, gt_line],[yolo_legend_values[i],tcv_legend_values[i], filtered_legend_values[i], 'ground truth'])
 
-    folder = './catkin_ws/src/uav_vision/data_storage/plots/'
+    folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
 
     fig.tight_layout()
@@ -175,28 +228,32 @@ def est_plot_comb_filtered(time, gt, yolo, tcv, filtered, savename):
         pass
 
 def main():
-    for file in os.listdir("./catkin_ws/src/uav_vision/data_storage"):
-        try:
-            loadname = file
-            savename = loadname.split('.')[0]
-            time, gt, yolo, tcv, yolo_error, filtered = load_data(loadname)
-        except Exception as e:
-            continue
+    data = Data()
+    data.load_data('unnamed.npy')
 
-        if savename.split('_')[-1] == 'comb':
-            est_plot_comb(time, gt, yolo, tcv, savename + "_var_plot")
-            est_plot(time, gt, filtered, savename + "_filtered_var_plot")
-            est_plot_comb_filtered(time, gt, yolo, tcv, filtered, savename + "_comb_plot")
-        elif savename.split('_')[-1] == 'yolo':
-            est_plot(time, gt, filtered, savename +"_filtered_plot")
-        elif savename.split('_')[-1] == 'tcv':
-            est_plot(time, gt, filtered, savename + "_var_plot")
-        else:
-            est_plot_comb(time, gt, yolo, tcv, savename + "_var_plot")
-            est_plot(time, gt, filtered, savename + "_filtered_var_plot")
-        if savename.split('_')[0] in ['landing','land']:
-            plot_xy(time, gt, filtered, savename+"_xy_plot")
-            plot_xyz(time, gt, filtered, savename+"_xyz_plot")
+    est_plot(data.time, data.ground_truth, data.filtered_estimate, "testplot")
+    # for file in os.listdir("./catkin_ws/src/uav_vision/data_storage"):
+    #     try:
+    #         loadname = file
+    #         savename = loadname.split('.')[0]
+    #         time, gt, yolo, tcv, yolo_error, filtered = load_data(loadname)
+    #     except Exception as e:
+    #         continue
+    #
+    #     if savename.split('_')[-1] == 'comb':
+    #         est_plot_comb(time, gt, yolo, tcv, savename + "_var_plot")
+    #         est_plot(time, gt, filtered, savename + "_filtered_var_plot")
+    #         est_plot_comb_filtered(time, gt, yolo, tcv, filtered, savename + "_comb_plot")
+    #     elif savename.split('_')[-1] == 'yolo':
+    #         est_plot(time, gt, filtered, savename +"_filtered_plot")
+    #     elif savename.split('_')[-1] == 'tcv':
+    #         est_plot(time, gt, filtered, savename + "_var_plot")
+    #     else:
+    #         est_plot_comb(time, gt, yolo, tcv, savename + "_var_plot")
+    #         est_plot(time, gt, filtered, savename + "_filtered_var_plot")
+    #     if savename.split('_')[0] in ['landing','land']:
+    #         plot_xy(time, gt, filtered, savename+"_xy_plot")
+    #         plot_xyz(time, gt, filtered, savename+"_xyz_plot")
 
 
 if __name__ == '__main__':
