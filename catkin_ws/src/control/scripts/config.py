@@ -9,7 +9,7 @@ import math
 # General
 is_simulator = True
 
-default_setpoint = np.array([0.1, 0, 1.5, 0, 0, 0])
+default_setpoint = np.array([-0.1, 0, 1.5, 0, 0, 0])
 
 takeoff_height = 1.5
 
@@ -26,7 +26,7 @@ takeoff_timer_duration = 3
 x_upper_limit = 15
 y_upper_limit = 15
 z_upper_limit = 7
-error_timer_duration = 30
+error_timer_duration = 90
 error_descent_vel = -0.4
 
 ####################

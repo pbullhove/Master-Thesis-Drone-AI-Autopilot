@@ -40,9 +40,9 @@ def main():
     pub_gps = rospy.Publisher('/mock_gps', Twist, queue_size=1)
     pub_msg = Twist()
 
-    sigma = 0.02
+    sigma = 0.05
 
-    rate = rospy.Rate(2)
+    rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         if ground_truth is not None:
             ex,ey,ez = generate_random_errors(sigma)

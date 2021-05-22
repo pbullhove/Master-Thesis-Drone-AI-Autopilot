@@ -54,7 +54,7 @@ def estimate_callback(data):
     global prev_setpoint_yaw
 
     est_state = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
-    
+
     try: #rotate setpoint to match body frame given new yaw
         bf_setpoint[0:2] = hlp.wf_to_bf(wf_setpoint[0:2], est_state[5])
         prev_setpoint_yaw = data.angular.z
@@ -68,6 +68,7 @@ def estimate_callback(data):
 def pid_on_off_callback(data):
     """ Toggles PID control on and off depending on std_msgs/Bool data """
     global pid_on_off
+    print("PID: ", data.data)
     pid_on_off = data.data
 
 # Setup for the PID controller
