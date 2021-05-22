@@ -85,6 +85,9 @@ t_prev_gps = None
 y_prev_dnnCV = None
 t_prev_dnnCV = None
 
+imu_integrated = np.zeros(6)
+barometric_altitude = np.zeros(6)
+
 def kalman_gain(P,C,R):
     """ Computes the Kalman Gain which specifies how much to update x_est given a new measurement. """
     PCT = np.dot(P, C.T)
@@ -305,6 +308,12 @@ def navdata_callback(data):
     delta_pos = delta_t*v_est
     delta_pos = np.zeros(3)
 
+    """ Integrating IMU data for plotting and tuning"""
+    imu_integrated[0:3] += delta_pos
+    imu_integrated[3:] = data.rotX, data.rotY, data.rotZ
+    imu_integrated[0:3] = R.from_euler('z', -np.radians(delta_yaw)).apply(imu_integrated[0:3])
+
+
     """ Predicting x_est based on v_est and delta_yaw."""
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
     x_est = x_est + delta_x
@@ -324,6 +333,7 @@ def navdata_callback(data):
         y = calibration_pressure - y
         y /= 11.3 # pressure to height constant
         KF_update(R_baro, C_baro, y)
+        barometric_altitude = y
         try:
             if (datetime.now() - t_prev_range).total_seconds() < 1:
                 if np.absolute(y - y_prev_range) > 0.01:
@@ -347,6 +357,8 @@ def main():
 
     filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
     filtered_vel_pub = rospy.Publisher('/filtered_estimate_vel', Twist, queue_size=10)
+    pub_imu_integrated = rospy.Publisher('/imu_integrated', Twist, queue_size=10)
+    pub_barom = rospy.Publisher('/barometric_altitude', Twist, queue_size=10)
 
     rospy.loginfo("Starting combined filter for estimate")
 
@@ -360,6 +372,8 @@ def main():
             vel_msg = hlp.to_Twist(v)
             filtered_estimate_pub.publish(msg)
             filtered_vel_pub.publish(vel_msg)
+            pub_imu_integrated.publish(hlp.to_Twist(imu_integrated))
+            pub_barom.publish(hlp.to_Twist(barometric_altitude))
             # rospy.loginfo(v_est)
         else:
             print('calibrating')
