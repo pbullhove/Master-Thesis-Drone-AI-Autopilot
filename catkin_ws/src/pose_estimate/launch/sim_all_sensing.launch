@@ -6,6 +6,6 @@
     <node name="dnnCV" pkg="pose_estimate" type="dnnCV.py" output="screen" />
     <node name="kalman_filter" pkg="pose_estimate" type="kalman_filter.py" output="screen" />
     <node name="mock_gps" pkg="pose_estimate" type="mock_gps.py" output="screen" />
-    <include file="$(find darknet_ros)/launch/darknet_ros.launch"></include>
+    <include file="$(find darknet_ros)/launch/ardrone_sim.launch"></include>
 
 </launch>

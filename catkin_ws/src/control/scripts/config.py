@@ -7,7 +7,7 @@ import numpy as np
 import math
 
 # General
-is_simulator = False
+is_simulator = True
 
 default_setpoint = np.array([0.1, 0, 1.5, 0, 0, 0])
 
