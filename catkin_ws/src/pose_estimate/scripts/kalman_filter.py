@@ -54,10 +54,10 @@ C_tcv = np.eye(6)
 C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
 C_baro = np.array([0,0,1,0,0,0]).reshape((1,6))
 
-R_dnnCV = (0.4**2)*np.eye(6) # 10hz
-R_tcv = (0.1**2)*np.diag([1,1,1,1,1,1000]) # 10hz
+R_dnnCV = (0.02**2)*np.eye(6) # 10hz
+R_tcv = (0.01**2)*np.diag([1,1,1,1,1,1000]) # 10hz
 R_gps = (0.1**2)*np.eye(3) # 2 hz
-R_baro = (0.7**2)*np.eye(1) # 200hz
+R_baro = (0.3**2)*np.eye(1) # 200hz
 
 Q_imu = 0.01*np.diag([1, 1, 1, 0, 0, 1])
 Q_imu_vel = 0.01*np.diag([1, 1, 1])
@@ -87,6 +87,34 @@ t_prev_dnnCV = None
 
 imu_integrated = np.zeros(6)
 barometric_altitude = np.zeros(6)
+median_filter_size = 1
+average_filter_size = 1
+barom_median_filter_size = 5
+barom_average_filter_size = 5
+estimate_history_size = median_filter_size + average_filter_size - 1
+estimate_history_dnn = np.zeros((estimate_history_size,3))
+estimate_history_tcv = np.zeros((estimate_history_size,3))
+estimate_history_dnn_yaw = np.zeros(estimate_history_size)
+estimate_history_tcv_yaw = np.zeros(estimate_history_size)
+barom_estimate_history_size = barom_median_filter_size + barom_average_filter_size - 1
+estimate_history_barom = np.zeros(barom_estimate_history_size)
+
+def filter_estimate(estimate, estimate_history, median_filter_size, average_filter_size):
+    """
+        Filters the estimate with a sliding window median and average filter.
+    """
+
+    estimate_history = np.concatenate((estimate_history[1:], [estimate]))
+
+    strides = np.array(
+        [estimate_history[i:median_filter_size+i] for i in range(average_filter_size)]
+    )
+
+    median_filtered = np.median(strides, axis = 1)
+    average_filtered = np.average(median_filtered[-average_filter_size:], axis=0)
+
+    return average_filtered, estimate_history
+
 
 def kalman_gain(P,C,R):
     """ Computes the Kalman Gain which specifies how much to update x_est given a new measurement. """
@@ -161,7 +189,12 @@ def dnnCV_estimate_callback(data):
     """ Filters pose estimates from dnnCV cv algorithm. Estimates pos in xyz and yaw. Only use this if more than 0.7m above platform, as camera view too close for correct estimates. """
     global t_prev_dnnCV
     global y_prev_dnnCV
+    global estimate_history_dnn
+    global estimate_history_dnn_yaw
     dnnCV_estimate = hlp.twist_to_array(data)
+    dnnCV_estimate[0:3], estimate_history_dnn = filter_estimate(dnnCV_estimate[0:3], estimate_history_dnn, median_filter_size, average_filter_size)
+    if dnnCV_estimate[5] != 0.0:
+        dnnCV_estimate[5], estimate_history_dnn_yaw = filter_estimate(dnnCV_estimate[5], estimate_history_dnn_yaw, median_filter_size, average_filter_size)
     if x_est[2] > 0.7 or dnnCV_estimate[2] > 0.7:
         if dnnCV_estimate[5] == 0.0: #if no estimate for yaw
             C = C_dnnCV[0:3,:]
@@ -185,8 +218,14 @@ def dnnCV_estimate_callback(data):
 def tcv_estimate_callback(data):
     global t_prev_tcv
     global y_prev_tcv
+    global estimate_history_tcv
+    global estimate_history_tcv_yaw
     """ Filters pose estimates from tcv cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.4m above platform, as camera view too close for correct estimates. """
     tcv_estimate = hlp.twist_to_array(data)
+    tcv_estimate[0:3], estimate_history_tcv = filter_estimate(tcv_estimate[0:3], estimate_history_tcv, median_filter_size, average_filter_size)
+    # if tcv_estimate[5] != 0.0:
+    #     tcv_estimate[5], estimate_history_tcv_yaw = filter_estimate(tcv_estimate[5], estimate_history_tcv_yaw, median_filter_size, average_filter_size)
+
     if x_est[2] > 0.4 or tcv_estimate[2] > 0.4:
         if tcv_estimate[5] == 0.0 or tcv_estimate[5] == -0.0: #if no estimate for yaw
             C = C_dnnCV[0:3,:]
@@ -264,6 +303,7 @@ def navdata_callback(data):
     global calib_pitch
     global t_prev_range
     global y_prev_range
+    global estimate_history_barom
 
     """ Calibration before start. """
     if cfg.do_calibration_before_start and calib_steps < cfg.num_calib_steps:
@@ -309,8 +349,8 @@ def navdata_callback(data):
     delta_pos = np.zeros(3)
 
     """ Integrating IMU data for plotting and tuning"""
-    imu_integrated[0:3] += delta_pos
-    imu_integrated[3:] = data.rotX, data.rotY, data.rotZ
+    imu_integrated[0:3] += delta_t*v_est
+    imu_integrated[3:] = data.rotX, data.rotY, imu_integrated[5]+delta_yaw
     imu_integrated[0:3] = R.from_euler('z', -np.radians(delta_yaw)).apply(imu_integrated[0:3])
 
 
@@ -326,14 +366,14 @@ def navdata_callback(data):
     x_est[5] = hlp.angleFromTo(x_est[5],-180,180)
 
     """ Update x_est and v_est based or barometric data. """
-    y = data.pressure # Z measurement for real QC
-    if cfg.is_simulator: # simulated qc does not have barometer. Use simulated height to generate sonar data.
-        y = - data.altd * 11.3 / 1000.0
+    if cfg.is_simulator:
+        y = data.altd / 1000.0
+    elif data.pressure > 0:
+        y = (calibration_pressure - data.pressure)/11.3
     if y > 0.0:
-        y = calibration_pressure - y
-        y /= 11.3 # pressure to height constant
+        y, estimate_history_barom = filter_estimate(y, estimate_history_barom, barom_median_filter_size, barom_average_filter_size)
         KF_update(R_baro, C_baro, y)
-        barometric_altitude = y
+        barometric_altitude[2] = y
         try:
             if (datetime.now() - t_prev_range).total_seconds() < 1:
                 if np.absolute(y - y_prev_range) > 0.01:
@@ -357,8 +397,8 @@ def main():
 
     filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
     filtered_vel_pub = rospy.Publisher('/filtered_estimate_vel', Twist, queue_size=10)
-    pub_imu_integrated = rospy.Publisher('/imu_integrated', Twist, queue_size=10)
-    pub_barom = rospy.Publisher('/barometric_altitude', Twist, queue_size=10)
+    pub_imu_integrated = rospy.Publisher('/estimate/imu', Twist, queue_size=10)
+    pub_barom = rospy.Publisher('/estimate/barometer', Twist, queue_size=10)
 
     rospy.loginfo("Starting combined filter for estimate")
 
@@ -374,7 +414,6 @@ def main():
             filtered_vel_pub.publish(vel_msg)
             pub_imu_integrated.publish(hlp.to_Twist(imu_integrated))
             pub_barom.publish(hlp.to_Twist(barometric_altitude))
-            # rospy.loginfo(v_est)
         else:
             print('calibrating')
         rate.sleep()

@@ -90,6 +90,15 @@ class Data():
 
 
 
+def rmse(gt, data):
+    return np.sqrt(np.mean((gt-data)**2))
+
+def euc_dis(gt, data):
+    data = data[:,0:3]
+    gt = gt[:,0:3]
+    return numpy.linalg.norm(gt-data)
+
+
 def plot_xyz(time, gt, est, savename):
     fig = plt.figure(figsize=(10,10))
     ax = fig.add_subplot(111,projection='3d')
@@ -232,6 +241,8 @@ def main():
     data.load_data('unnamed.npy')
 
     est_plot(data.time, data.ground_truth, data.filtered_estimate, "testplot")
+    # est_plot(data.time, data.ground_truth, data.imu, "testplot")
+
     # for file in os.listdir("./catkin_ws/src/uav_vision/data_storage"):
     #     try:
     #         loadname = file

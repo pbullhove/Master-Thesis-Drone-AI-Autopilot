@@ -42,7 +42,7 @@ def toggle_data_collection(data):
 
 ground_truth = np.zeros(6)
 def ground_truth_callback(data):
-    global global_est_ground_truth
+    global ground_truth
     ground_truth = to_array(data)
 
 filtered_estimate = np.zeros(6)
@@ -67,7 +67,7 @@ barometer = np.zeros(6)
 barometer_error = np.zeros(6)
 def estimate_barometer_callback(data):
     global barometer
-    barometer = np.array(data)
+    barometer = to_array(data)
 
 gps = np.zeros(6)
 gps_error = np.zeros(6)

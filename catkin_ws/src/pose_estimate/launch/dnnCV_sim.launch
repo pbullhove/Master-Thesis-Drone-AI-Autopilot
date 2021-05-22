@@ -2,5 +2,5 @@
 
 <launch>
     <node name="dnnCV" pkg="pose_estimate" type="dnnCV.py" output="screen" />
-    <include file="$(find darknet_ros)/launch/darknet_ros.launch"></include>
+    <include file="$(find darknet_ros)/launch/ardrone_sim.launch"></include>
 </launch>
