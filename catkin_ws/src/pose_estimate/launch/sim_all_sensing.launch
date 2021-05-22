@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <launch>
-    <node name="ground_truth" pkg="pose_estimate" type="ground_truth.py" output="screen" />
+    <node name="ground_truth" pkg="utilities" type="ground_truth.py" output="screen" />
     <node name="tcv" pkg="pose_estimate" type="tcv.py" output="screen" />
     <node name="dnnCV" pkg="pose_estimate" type="dnnCV.py" output="screen" />
     <node name="kalman_filter" pkg="pose_estimate" type="kalman_filter.py" output="screen" />
