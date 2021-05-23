@@ -90,13 +90,6 @@ class Data():
 
 
 
-def rmse(gt, data):
-    return np.sqrt(np.mean((gt-data)**2))
-
-def euc_dis(gt, data):
-    data = data[:,0:3]
-    gt = gt[:,0:3]
-    return numpy.linalg.norm(gt-data)
 
 
 def plot_xyz(time, gt, est, savename):
@@ -236,10 +229,38 @@ def est_plot_comb_filtered(time, gt, yolo, tcv, filtered, savename):
     except Exception as e:
         pass
 
+
+def rmse(gt, data=None):
+    if data is None:
+        data = np.zeros_like(gt)
+    return np.sqrt(np.mean((gt-data)**2))
+
+def euc_dis(gt, data):
+    data = data[:,0:3]
+    gt = gt[:,0:3]
+    return np.linalg.norm(gt-data, axis=1)
+
 def main():
     data = Data()
-    data.load_data('hover.npy')
-    est_plot(data.time, data.ground_truth, data.filtered_estimate, "testplot")
+    data.load_data('landing.npy')
+    data.set_point[0:55,0] = -2
+    data.set_point[0:55,1] = 2
+    data.set_point[0:55,2] = 5
+    data.set_point[0:55,5] = -90
+    est_plot(data.time, data.ground_truth, data.filter_estimate, "testplot")
+
+
+    print('rmse filtered: ' , rmse(euc_dis(data.ground_truth, data.filtered_estimate)))
+    print('rmse filtered yaw: ' , rmse(data.ground_truth[5], data.filtered_estimate[5]))
+    print('rmse dnncv: ' , rmse(euc_dis(data.ground_truth, data.dnnCV)))
+    print('rmse dnncv yaw: ' , rmse(data.ground_truth[5], data.dnnCV[5]))
+    print('rmse tcv: ' , rmse(euc_dis(data.ground_truth[:,0:3], data.tcv)))
+    print('rmse tcv yaw: ' , rmse(data.ground_truth[5], data.tcv[5]))
+    print('rmse gps: ' , rmse(euc_dis(data.ground_truth[:,0:3], data.gps)))
+    print('rmse barom: ' , rmse(data.ground_truth[:,2], data.barometer))
+    print('rmse imu: ' , rmse(euc_dis(data.ground_truth, data.imu)))
+    print('rmse imu yaw: ' , rmse(data.ground_truth[5], data.imu[5]))
+
 
 
 

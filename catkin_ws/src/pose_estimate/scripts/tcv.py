@@ -1275,7 +1275,7 @@ def main():
                 est_msg.linear.x = est[0]
                 est_msg.linear.y = est[1]
                 est_msg.linear.z = est[2]
-                est_msg.angular.z = est[5]
+                est_msg.angular.z = est[5] if est[2] < 2 else 0
                 pub_est.publish(est_msg)
             count += 1
             if use_test_image:

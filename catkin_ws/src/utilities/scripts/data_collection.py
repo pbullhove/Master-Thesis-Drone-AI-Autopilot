@@ -100,7 +100,7 @@ def main():
     rospy.Subscriber('/drone_ground_truth', Twist, ground_truth_callback)
     rospy.Subscriber('/filtered_estimate', Twist, filtered_estimate_callback)
 
-    rospy.Subscriber('/estimate/tcv_estimate', Twist, est_tcv_callback)
+    rospy.Subscriber('/estimate/tcv', Twist, est_tcv_callback)
     rospy.Subscriber('/estimate/dnnCV', Twist, estimate_dnncv_callback)
     rospy.Subscriber('/estimate/barometer', Twist, estimate_barometer_callback)
     rospy.Subscriber('/estimate/gps', Twist, estimate_gps_callback)
@@ -115,7 +115,7 @@ def main():
 
     data_array = []
 
-    duration = 40 # seconds
+    duration = 300 # seconds
 
     rate = rospy.Rate(20) # Hz
     while not rospy.is_shutdown():

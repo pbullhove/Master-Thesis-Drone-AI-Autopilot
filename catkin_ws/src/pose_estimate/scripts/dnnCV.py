@@ -215,6 +215,7 @@ def estimate_center_rotation_and_radius(bounding_boxes):
     H = find_best_bb_of_class(bounding_boxes, 'H')
     Arrow = find_best_bb_of_class(bounding_boxes, 'Arrow')
 
+    downscale_bb = 0.97 if not cfg.is_simulator else 1
     if Helipad != None:
         center = est_center_of_bb(Helipad)
         radius = 0.97*est_radius_of_bb(Helipad)

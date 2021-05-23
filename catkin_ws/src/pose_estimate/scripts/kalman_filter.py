@@ -56,7 +56,7 @@ C_baro = np.array([0,0,1,0,0,0]).reshape((1,6))
 
 R_dnnCV = (0.02**2)*np.eye(6) # 10hz
 R_tcv = (0.01**2)*np.diag([1,1,1,1,1,1000]) # 10hz
-R_gps = (0.5**2)*np.eye(3) # 2 hz
+R_gps = (0.1**2)*np.eye(3) # 2 hz
 R_baro = (0.3**2)*np.eye(1) # 200hz
 
 Q_imu = 0.01*np.diag([1, 1, 1, 0, 0, 1])
@@ -146,14 +146,14 @@ def KF_update(R,C,y):
     global x_est
     global x_est_prev
     global v_est
-    """ If measurement is more than 5m away from current estimate and is more than 5m of start: discard measurement"""
-    try:
-        if ((np.absolute(y - np.dot(C,x_est)))[0:3] > np.array([5,5,5])).any() and (np.absolute(y)[0:3] > np.array([5,5,5])).any():
-            print('discard')
-            return
-    except IndexError as e: # range updates
-        if (np.absolute(y - np.dot(C,x_est)) > 5) and (np.absolute(y) > 5):
-            return
+    # """ If measurement is more than 5m away from current estimate and is more than 5m of start: discard measurement"""
+    # try:
+    #     if ((np.absolute(y - np.dot(C,x_est)))[0:3] > np.array([5,5,5])).any() and (np.absolute(y)[0:3] > np.array([5,5,5])).any():
+    #         print('discard')
+    #         return
+    # except IndexError as e: # range updates
+    #     if (np.absolute(y - np.dot(C,x_est)) > 5) and (np.absolute(y) > 5):
+    #         return
 
     K = kalman_gain(P, C, R)
     innov = y-np.dot(C,x_est)
@@ -223,8 +223,8 @@ def tcv_estimate_callback(data):
     """ Filters pose estimates from tcv cv algorithm. Estimates pos in xyz and yaw. Only use this if mmore than 0.4m above platform, as camera view too close for correct estimates. """
     tcv_estimate = hlp.twist_to_array(data)
     tcv_estimate[0:3], estimate_history_tcv = filter_estimate(tcv_estimate[0:3], estimate_history_tcv, median_filter_size, average_filter_size)
-    # if tcv_estimate[5] != 0.0:
-    #     tcv_estimate[5], estimate_history_tcv_yaw = filter_estimate(tcv_estimate[5], estimate_history_tcv_yaw, median_filter_size, average_filter_size)
+    if tcv_estimate[5] != 0.0:
+        tcv_estimate[5], estimate_history_tcv_yaw = filter_estimate(tcv_estimate[5], estimate_history_tcv_yaw, median_filter_size, average_filter_size)
 
     if x_est[2] > 0.4 or tcv_estimate[2] > 0.4:
         if tcv_estimate[5] == 0.0 or tcv_estimate[5] == -0.0: #if no estimate for yaw
@@ -247,13 +247,15 @@ def tcv_estimate_callback(data):
             y_prev_tcv = y[0:3]
 
 
-
+gps_data = np.zeros(3)
 def gps_callback(data):
     """ Filters gps data which is measurement of position in xyz. """
     global t_prev_gps
     global y_prev_gps
+    global gps_data
     gps_measurement = hlp.twist_to_array(data)
     y = gps_measurement[0:3]
+    gps_data = y
     KF_update(R_gps, C_gps, y)
     try:
         if (datetime.now() - t_prev_gps).total_seconds() < 1:
@@ -275,6 +277,16 @@ def takeoff_callback(data):
     P[0:3,0:3] = 0.1*np.eye(3)
     v_est = np.array([0.0,0.0,0.0])
     P_v = 0.1*np.eye(3)
+
+def reset_imu_values(data):
+    global imu_integrated
+    imu_integrated = x_est
+
+def update_yaw(data):
+    global x_est
+    innov = hlp.angleFromTo(data.angular.z - x_est[5], -180,180)
+    x_est[5] = x_est[5] + 0.05*(innov)
+    x_est[5] = hlp.angleFromTo(x_est[5], -180,180)
 
 def navdata_callback(data):
     """
@@ -343,16 +355,16 @@ def navdata_callback(data):
     """ Integrating acc to find v_est. """
     v_est *= 1-vel_decay
     v_est += delta_t*acc
-    v_est = np.array([max(-cfg.vel_estimate_limit,i) for i in v_est])
-    v_est = np.array([min(cfg.vel_estimate_limit,i) for i in v_est])
+    # v_est = np.array([data.vx, data.vy, data.vz])/1000.0
+    # v_est = np.array([max(-cfg.vel_estimate_limit,i) for i in v_est])
+    # v_est = np.array([min(cfg.vel_estimate_limit,i) for i in v_est])
     delta_pos = delta_t*v_est
-    delta_pos = np.zeros(3)
+    # delta_pos = np.zeros(3)
 
     """ Integrating IMU data for plotting and tuning"""
     imu_integrated[0:3] += delta_t*v_est
     imu_integrated[3:] = data.rotX, data.rotY, imu_integrated[5]+delta_yaw
     imu_integrated[0:3] = R.from_euler('z', -np.radians(delta_yaw)).apply(imu_integrated[0:3])
-
 
     """ Predicting x_est based on v_est and delta_yaw."""
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
@@ -370,7 +382,7 @@ def navdata_callback(data):
         y = data.altd / 1000.0
     elif data.pressure > 0:
         y = (calibration_pressure - data.pressure)/11.3
-    if y > 0.0:
+    if y > 0.0 and data.altd < 2500.0:
         y, estimate_history_barom = filter_estimate(y, estimate_history_barom, barom_median_filter_size, barom_average_filter_size)
         KF_update(R_baro, C_baro, y)
         barometric_altitude[2] = y
@@ -394,11 +406,15 @@ def main():
     rospy.Subscriber('/mock_gps', Twist, gps_callback)
     rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
     rospy.Subscriber('/ardrone/takeoff', Empty, takeoff_callback)
+    rospy.Subscriber('/start_data_collection', Empty, reset_imu_values)
+    rospy.Subscriber('/drone_ground_truth', Twist, update_yaw)
 
     filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
     filtered_vel_pub = rospy.Publisher('/filtered_estimate_vel', Twist, queue_size=10)
     pub_imu_integrated = rospy.Publisher('/estimate/imu', Twist, queue_size=10)
     pub_barom = rospy.Publisher('/estimate/barometer', Twist, queue_size=10)
+    pub_gps = rospy.Publisher('/estimate/gps', Twist, queue_size=10)
+
 
     rospy.loginfo("Starting combined filter for estimate")
 
@@ -407,6 +423,7 @@ def main():
     while not rospy.is_shutdown():
         if not cfg.do_calibration_before_start or calib_steps >= cfg.num_calib_steps:
             x = [round(i,5) for i in x_est]
+            x[5] += 1.0 #some offset in estimates
             msg = hlp.to_Twist(x)
             v = [round(i,5) for i in v_est] + [0,0,0]
             vel_msg = hlp.to_Twist(v)
@@ -414,6 +431,9 @@ def main():
             filtered_vel_pub.publish(vel_msg)
             pub_imu_integrated.publish(hlp.to_Twist(imu_integrated))
             pub_barom.publish(hlp.to_Twist(barometric_altitude))
+            if gps_data is not None:
+                gps = [round(i,5) for i in gps_data] + [0,0,0]
+                pub_gps.publish(hlp.to_Twist(gps))
         else:
             print('calibrating')
         rate.sleep()

@@ -78,6 +78,8 @@ if len(args) == 1:
 else:
     if args[1].lower() == "thl":
         mission_plan = ["INIT", "TAKEOFF","HOVER", "LANDING"]
+    elif args[1].lower() == "land":
+        mission_plan = ["INIT","MOVE TO [0,0,3,0,0,0]", "MOVE TO [0,0,1.5,0,0,0]", "LANDING"]
     elif args[1].lower() == "thhhl":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "HOVER", "LANDING", "IDLE"]
     elif args[1].lower() == "movefar":
@@ -85,11 +87,13 @@ else:
     elif args[1].lower() == "photomission_here":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "PHOTOTWIRL", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
     elif args[1].lower() == "photomission_there":
-        mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,5,3,0,0,0]", "HOVER", "PHOTOTWIRL", "HOVER", "MOVE TO [0,0,3,0,0,0]", "HOVER", "LANDING", "IDLE"]
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "MOVE TO [10,0,5,0,0,0]", "PHOTOTWIRL", "MOVE TO [10,10,5,0,0,0]", "MOVE TO [0,10,5,0,0,0]", "MOVE TO [0,0,5,0,0,0]", "LANDING", "IDLE"]
     elif args[1].lower() == "moveabit":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [1,1,2,0,0,0]", "HOVER", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
     elif args[1].lower() == "move":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [5,5,2,0,0,0]", "HOVER", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
+    elif args[1].lower() == "hex":
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [10,0,5,0,0,0]", "MOVE TO [5,9,5,0,0,0]", "MOVE TO [-5,9,5,0,0,0]","MOVE TO [-10,0,5,0,0,0]","MOVE TO [-5,-9,5,0,0,0]", "MOVE TO [5,-9,5,0,0,0]", "MOVE TO [10,0,5,0,0,0]", "MOVE TO [0,0,5,0,0,0]", "HOVER", "LANDING", "IDLE"]
     else:
         raise("unknown mission")
 
