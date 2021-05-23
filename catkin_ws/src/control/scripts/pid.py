@@ -63,6 +63,10 @@ def estimate_callback(data):
         pass
 
 
+ground_truth = None
+def gt_callback(data):
+    global ground_truth
+    ground_truth = np.array([data.linear.x, data.linear.y, data.linear.z, data.angular.x, data.angular.y, data.angular.z])
 
 
 def pid_on_off_callback(data):
@@ -171,10 +175,8 @@ def main():
     global bf_setpoint
     rospy.init_node('pid_controller', anonymous=True)
 
-    if not use_gt:
-        rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
-    else:
-        rospy.Subscriber('/drone_ground_truth', Twist, estimate_callback)
+    rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
+    rospy.Subscriber('/drone_ground_truth', Twist, gt_callback)
 
     rospy.Subscriber('/set_point', Twist, set_point_callback)
     rospy.Subscriber('/ardrone/takeoff', Empty, take_off_callback)
@@ -191,7 +193,7 @@ def main():
     prev_time = rospy.get_time()
     rate = rospy.Rate(100) # Hz
     while not rospy.is_shutdown():
-        state = est_state
+        state = est_state if not use_gt else ground_truth
 
         if state is not None and not out_of_bounds_error:
             if abs(state[0]) > cfg.x_upper_limit or abs(state[1]) > cfg.y_upper_limit or abs(state[2]) > cfg.z_upper_limit:
