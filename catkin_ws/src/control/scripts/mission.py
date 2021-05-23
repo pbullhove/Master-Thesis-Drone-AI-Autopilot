@@ -87,7 +87,7 @@ else:
     elif args[1].lower() == "photomission_here":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "PHOTOTWIRL", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
     elif args[1].lower() == "photomission_there":
-        mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "MOVE TO [10,0,5,0,0,0]", "PHOTOTWIRL", "MOVE TO [10,10,5,0,0,0]", "MOVE TO [0,10,5,0,0,0]", "MOVE TO [0,0,5,0,0,0]", "LANDING", "IDLE"]
+        mission_plan = ["INIT", "TAKEOFF", "HOVER", "HOVER", "MOVE TO [10,0,5,0,0,0]", "PHOTOTWIRL", "MOVE TO [10,10,5,0,0,0]", "MOVE TO [0,10,5,0,0,0]", "MOVE TO [0,0,5,0,0,0]","HOVER",  "LANDING", "IDLE"]
     elif args[1].lower() == "moveabit":
         mission_plan = ["INIT", "TAKEOFF", "HOVER", "MOVE TO [1,1,2,0,0,0]", "HOVER", "MOVE TO [0,0,2,0,0,0]", "HOVER", "LANDING", "IDLE"]
     elif args[1].lower() == "move":

@@ -5,6 +5,7 @@ from mpl_toolkits import mplot3d # For 3D plot
 import matplotlib.gridspec as gridspec # For custom subplot grid
 import numpy as np
 import time
+import math
 import sys
 import os
 
@@ -92,23 +93,6 @@ class Data():
 
 
 
-def plot_xyz(time, gt, est, savename):
-    fig = plt.figure(figsize=(10,10))
-    ax = fig.add_subplot(111,projection='3d')
-    plt.title('Estimated trajectory xyz')
-    est, = plt.plot(est[:,0], est[:,1], est[:,2])
-    gt, = plt.plot( gt[:,0], gt[:,1], gt[:,2])
-    plt.legend([est, gt], ['estimate x,y, z', 'ground truth x, y, z'])
-
-    folder = './catkin_ws/src/utilities/data_storage/plots/'
-    plt.savefig(folder+savename+'.svg')
-    fig.tight_layout()
-    # fig.show()
-    try:
-        plt.waitforbuttonpress()
-        plt.close()
-    except Exception as e:
-        pass
 
 def plot_xy(time, gt, est, savename):
     fig = plt.figure(figsize=(10,10))
@@ -129,8 +113,11 @@ def plot_xy(time, gt, est, savename):
 
 
 def est_plot(time, gt, est, savename):
-    variables = ['x', 'y', 'z', 'yaw']
-    legend_values = ['est_x', 'est_y' ,'est_z', 'est_yaw']
+    plt.rc('font', family='Serif', size=11)
+    variables = ['$x$', '$y$', '$z$', '$\psi$']
+
+    legend_values = ['$\hat{x}$', '$\hat{y}$' ,'$\hat{z}$', '$\hat{\psi}$']
+    gt_lab = ['$x^{gt}$', '$y^{gt}$' ,'$z^{gt}$', '$\psi^{gt}$']
     subtitles = variables
     fig = plt.figure(figsize=(12,8))
     for i in range(4):
@@ -145,7 +132,7 @@ def est_plot(time, gt, est, savename):
         data_line, = ax.plot(time,est[:,k], color='b')
         data_line.set_label('estimate')
         gt_line, = ax.plot(time,gt[:,k], color='r')
-        plt.legend([data_line, gt_line],[legend_values[i],'ground truth'])
+        plt.legend([data_line, gt_line],[legend_values[i],gt_lab[i]])
 
     folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
@@ -160,26 +147,29 @@ def est_plot(time, gt, est, savename):
         pass
 
 
-def est_plot_comb(time, gt, yolo, tcv, savename):
-    file_title = 'yolo_v4_tiny_estimate_vs_gt_hovering'
-    variables = ['x', 'y', 'z', 'yaw']
-    yolo_legend_values = ['est_yolo_x', 'est_yolo_y' ,'est_yolo_z', 'est_yolo_yaw']
-    tcv_legend_values = ['est_tcv_x', 'est_tcv_y' ,'est_tcv_z', 'est_tcv_yaw']
+def est_plot_setpoint(time, gt, est, setpoint,savename):
+    plt.rc('font', family='Serif', size=11)
+    variables = ['$x$', '$y$', '$z$', '$\psi$']
+
+    legend_values = ['$\hat{x}$', '$\hat{y}$' ,'$\hat{z}$', '$\hat{\psi}$']
+    gt_lab = ['$x^{gt}$', '$y^{gt}$' ,'$z^{gt}$', '$\psi^{gt}$']
+    sp_lab = ['$x_r$', '$y_r$' ,'$z_r$', '$\psi_r$']
     subtitles = variables
     fig = plt.figure(figsize=(12,8))
-    plt.title('Yolo estimate while hovering')
     for i in range(4):
         k = i + 2 if i == 3 else i
         ax = plt.subplot(2,2,i+1)
         ax.set_xlabel('Time [s]')
         ax.set_ylabel('[deg]' if i == 3 else '[m]')
         ax.axhline(y=0, color='grey', linestyle='--')
+        ax.legend(legend_values[i])
         plt.grid()
         plt.title(subtitles[i])
-        yolo_line, = ax.plot(time,yolo[:,k], color='b')
-        tcv_line, = ax.plot(time, tcv[:,k], color = 'g')
+        data_line, = ax.plot(time,est[:,k], color='b')
+        data_line.set_label('estimate')
         gt_line, = ax.plot(time,gt[:,k], color='r')
-        plt.legend([yolo_line, tcv_line, gt_line],[yolo_legend_values[i],tcv_legend_values[i], 'ground truth'])
+        sp_line, = ax.plot(time,setpoint[:,k], color='g', linestyle="--")
+        plt.legend([data_line, gt_line, sp_line],[legend_values[i],gt_lab[i], sp_lab[i]])
 
     folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
@@ -194,37 +184,22 @@ def est_plot_comb(time, gt, yolo, tcv, savename):
         pass
 
 
-def est_plot_comb_filtered(time, gt, yolo, tcv, filtered, savename):
-    file_title = 'yolo_v4_tiny_estimate_vs_gt_hovering'
-    variables = ['x', 'y', 'z', 'yaw']
-    yolo_legend_values = ['est_yolo_x', 'est_yolo_y' ,'est_yolo_z', 'est_yolo_yaw']
-    tcv_legend_values = ['est_tcv_x', 'est_tcv_y' ,'est_tcv_z', 'est_tcv_yaw']
-    filtered_legend_values = ['est_filtered_x', 'est_filtered_y' ,'est_filtered_z', 'est_filtered_yaw']
-    subtitles = variables
-    fig = plt.figure(figsize=(12,8))
-    plt.title('Yolo estimate while hovering')
-    for i in range(4):
-        k = i + 2 if i == 3 else i
-        ax = plt.subplot(2,2,i+1)
-        ax.set_xlabel('Time [s]')
-        ax.set_ylabel('[deg]' if i == 3 else '[m]')
-        ax.axhline(y=0, color='grey', linestyle='--')
-        plt.grid()
-        plt.title(subtitles[i])
-        yolo_line, = ax.plot(time,yolo[:,k], color='b')
-        tcv_line, = ax.plot(time, tcv[:,k], color = 'g')
-        filtered_line, = ax.plot(time, filtered[:,k], color = 'orange')
-        gt_line, = ax.plot(time,gt[:,k], color='r')
-        plt.legend([yolo_line, tcv_line, filtered_line, gt_line],[yolo_legend_values[i],tcv_legend_values[i], filtered_legend_values[i], 'ground truth'])
+
+def plot_xyz(time, gt, est, savename):
+    fig = plt.figure(figsize=(10,10))
+    plt.rc('font', family='Serif', size=11)
+    ax = fig.add_subplot(111,projection='3d')
+    plt.title('Quadcopter mission trajectory')
+    est, = plt.plot(est[:,0], est[:,1], est[:,2])
+    gt, = plt.plot( gt[:,0], gt[:,1], gt[:,2])
+    plt.legend([est, gt], ['Estimated position', 'Ground truth position'])
 
     folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
-
     fig.tight_layout()
-    # fig.show()
-
+    plt.waitforbuttonpress()
     try:
-        plt.waitforbuttonpress(0)
+        plt.waitforbuttonpress()
         plt.close()
     except Exception as e:
         pass
@@ -240,16 +215,44 @@ def euc_dis(gt, data):
     gt = gt[:,0:3]
     return np.linalg.norm(gt-data, axis=1)
 
+
+def bf_to_wf(bf,yaw):
+
+    bf_xy1 = np.array([bf[0], bf[1], 1])
+    wf_xy1 = np.dot(r,bf_xy1)
+
+    wf = np.array([wf_xy1[0], wf_xy1[1], bf[2], bf[3], bf[4], bf[5]])
+    return wf
+
+
+def body2world(pos, ang):
+    new_pos = []
+    for xy,yaw in zip(pos,ang):
+        x,y = xy
+        yaw = yaw * math.pi/180
+        c, s = math.cos(yaw), math.sin(yaw)
+        r = np.array([[c, -s, 0],[s, c, 0],[0,0,1]])
+        bf_xy1 = np.array([x, y, 1])
+        wf_xy1 = np.dot(r,bf_xy1)
+        new_pos.append(wf_xy1[0:2])
+    new_pos = np.array(new_pos)
+    print(new_pos).shape
+    return new_pos
+
+
+
 def main():
     data = Data()
-    data.load_data('landing.npy')
-    data.set_point[0:55,0] = -2
-    data.set_point[0:55,1] = 2
-    data.set_point[0:55,2] = 5
-    data.set_point[0:55,5] = -90
-    est_plot(data.time, data.ground_truth, data.filter_estimate, "testplot")
-
-
+    data.load_data('hex.npy')
+    # data.set_point[0:55,0] = -2
+    # data.set_point[0:55,1] = 2
+    # data.set_point[0:55,2] = 5
+    # data.set_point[0:55,5] = -90
+    # est_plot_setpoint(data.time, data.ground_truth, data.filtered_estimate, data.set_point,"landing_est_gt_setpoint")
+    data.ground_truth[:,0:2] = body2world(data.ground_truth[:,0:2], data.ground_truth[:,5])
+    data.filtered_estimate[:,0:2] = body2world(data.filtered_estimate[:,0:2], data.filtered_estimate[:,5])
+    est_plot(data.time, data.ground_truth, data.filtered_estimate, "testplot")
+    plot_xyz(data.time, data.ground_truth, data.filtered_estimate, '3dplot')
     print('rmse filtered: ' , rmse(euc_dis(data.ground_truth, data.filtered_estimate)))
     print('rmse filtered yaw: ' , rmse(data.ground_truth[5], data.filtered_estimate[5]))
     print('rmse dnncv: ' , rmse(euc_dis(data.ground_truth, data.dnnCV)))
