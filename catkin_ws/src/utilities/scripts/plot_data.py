@@ -111,6 +111,39 @@ def plot_xy(time, gt, est, savename):
     except Exception as e:
         pass
 
+def error_plot(time, est, savename):
+    plt.rc('font', family='Serif', size=11)
+    variables = ['$x$', '$y$', '$z$', '$\psi$']
+
+    legend_values = ['$\hat{x}$', '$\hat{y}$' ,'$\hat{z}$', '$\hat{\psi}$']
+    # gt_lab = ['$x^{gt}$', '$y^{gt}$' ,'$z^{gt}$', '$\psi^{gt}$']
+    subtitles = variables
+    fig = plt.figure(figsize=(12,8))
+    for i in range(4):
+        k = i + 2 if i == 3 else i
+        ax = plt.subplot(2,2,i+1)
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('[deg]' if i == 3 else '[m]')
+        ax.axhline(y=0, color='grey', linestyle='--')
+        ax.legend(legend_values[i])
+        plt.grid()
+        plt.title(subtitles[i])
+        data_line, = ax.plot(time,est[:,k], color='r')
+        data_line.set_label('estimate')
+        plt.legend([data_line],[legend_values[i]])
+
+    folder = './catkin_ws/src/utilities/data_storage/plots/'
+    plt.savefig(folder+savename+'.svg')
+
+    fig.tight_layout()
+    # fig.show()
+
+    try:
+        plt.waitforbuttonpress(0)
+        plt.close()
+    except Exception as e:
+        pass
+
 
 def est_plot(time, gt, est, savename):
     plt.rc('font', family='Serif', size=11)
@@ -189,7 +222,7 @@ def plot_xyz(time, gt, est, savename):
     fig = plt.figure(figsize=(10,10))
     plt.rc('font', family='Serif', size=11)
     ax = fig.add_subplot(111,projection='3d')
-    plt.title('Quadcopter mission trajectory')
+    # plt.title('Quadcopter mission trajectory')
     est, = plt.plot(est[:,0], est[:,1], est[:,2])
     gt, = plt.plot( gt[:,0], gt[:,1], gt[:,2])
     plt.legend([est, gt], ['Estimated position', 'Ground truth position'])
@@ -200,10 +233,40 @@ def plot_xyz(time, gt, est, savename):
     plt.waitforbuttonpress()
     try:
         plt.waitforbuttonpress()
-        plt.close()
+        # plt.close()
     except Exception as e:
         pass
 
+
+def one_thing(time, est, savename):
+    plt.rc('font', family='Serif', size=11)
+    variables = ['$e_{estimate}$', '$y$', '$z$', '$\psi$']
+
+    legend_values = ['$e_p$']
+    subtitles = variables
+    fig = plt.figure(figsize=(12,8))
+    ax = plt.subplot(1,1,1)
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('[m]')
+    ax.axhline(y=0, color='grey', linestyle='--')
+    # ax.legend(legend_values[0])
+    plt.grid()
+    plt.title(subtitles[0])
+    data_line, = ax.plot(time,est, color='b')
+    data_line.set_label('estimate')
+    # plt.legend([data_line],[legend_values[0]])
+
+    folder = './catkin_ws/src/utilities/data_storage/plots/'
+    plt.savefig(folder+savename+'.svg')
+
+    fig.tight_layout()
+    # fig.show()
+
+    try:
+        plt.waitforbuttonpress(0)
+        plt.close()
+    except Exception as e:
+        pass
 
 def rmse(gt, data=None):
     if data is None:
@@ -236,14 +299,13 @@ def body2world(pos, ang):
         wf_xy1 = np.dot(r,bf_xy1)
         new_pos.append(wf_xy1[0:2])
     new_pos = np.array(new_pos)
-    print(new_pos).shape
     return new_pos
 
 
 
 def main():
     data = Data()
-    data.load_data('hex.npy')
+    data.load_data('unnamed.npy')
     # data.set_point[0:55,0] = -2
     # data.set_point[0:55,1] = 2
     # data.set_point[0:55,2] = 5
@@ -252,17 +314,43 @@ def main():
     data.ground_truth[:,0:2] = body2world(data.ground_truth[:,0:2], data.ground_truth[:,5])
     data.filtered_estimate[:,0:2] = body2world(data.filtered_estimate[:,0:2], data.filtered_estimate[:,5])
     est_plot(data.time, data.ground_truth, data.filtered_estimate, "testplot")
+    # error_plot(data.time, data.ground_truth - data.imu, "testplot")
+    # one_thing(data.time,euc_dis(data.filtered_estimate, data.ground_truth), "name")
+
     plot_xyz(data.time, data.ground_truth, data.filtered_estimate, '3dplot')
+
     print('rmse filtered: ' , rmse(euc_dis(data.ground_truth, data.filtered_estimate)))
-    print('rmse filtered yaw: ' , rmse(data.ground_truth[5], data.filtered_estimate[5]))
+    print('rmse filtered yaw: ' , rmse(data.ground_truth[:,5], data.filtered_estimate[:,5]))
     print('rmse dnncv: ' , rmse(euc_dis(data.ground_truth, data.dnnCV)))
-    print('rmse dnncv yaw: ' , rmse(data.ground_truth[5], data.dnnCV[5]))
+    print('rmse dnncv yaw: ' , rmse(data.ground_truth[:,5], data.dnnCV[:,5]))
     print('rmse tcv: ' , rmse(euc_dis(data.ground_truth[:,0:3], data.tcv)))
-    print('rmse tcv yaw: ' , rmse(data.ground_truth[5], data.tcv[5]))
+    print('rmse tcv yaw: ' , rmse(data.ground_truth[:,5], data.tcv[:,5]))
     print('rmse gps: ' , rmse(euc_dis(data.ground_truth[:,0:3], data.gps)))
     print('rmse barom: ' , rmse(data.ground_truth[:,2], data.barometer))
     print('rmse imu: ' , rmse(euc_dis(data.ground_truth, data.imu)))
-    print('rmse imu yaw: ' , rmse(data.ground_truth[5], data.imu[5]))
+    print('rmse imu yaw: ' , rmse(data.ground_truth[:,5], data.imu[:,5]))
+    print('----')
+    print('mean filtered error: ' , np.mean(euc_dis(data.ground_truth, data.filtered_estimate)))
+    print('mean filtered yaw error: ' , np.mean(data.ground_truth[:,5] - data.filtered_estimate[:,5]))
+    print('mean dnncv error: ' , np.mean(euc_dis(data.ground_truth, data.dnnCV)))
+    print('mean dnncv yaw error: ' , np.mean(data.ground_truth[:,5] -  data.dnnCV[:,5]))
+    print('mean tcv error: ' , np.mean(euc_dis(data.ground_truth, data.tcv)))
+    print('mean tcv yaw error: ' , np.mean(data.ground_truth[:,5] - data.tcv[:,5]))
+    print('mean gps error: ' , np.mean(euc_dis(data.ground_truth[:,0:3], data.gps)))
+    print('mean barom error: ' , np.mean(data.ground_truth[:,2] - data.barometer))
+    print('mean imu error: ' , np.mean(euc_dis(data.ground_truth, data.imu)))
+    print('mean imu yaw error: ' , np.mean(data.ground_truth[:,5] - data.imu[:,5]))
+    print('----')
+    print('std filtered error: ' , np.std(euc_dis(data.ground_truth, data.filtered_estimate)))
+    print('std filtered yaw error: ' , np.std(data.ground_truth[:,5]- data.filtered_estimate[:,5]))
+    print('std dnncv error: ' , np.std(euc_dis(data.ground_truth, data.dnnCV)))
+    print('std dnncv yaw error: ' , np.std(data.ground_truth[:,5] -  data.dnnCV[:,5]))
+    print('std tcv error: ' , np.std(euc_dis(data.ground_truth[:,0:3], data.tcv)))
+    print('std tcv yaw error: ' , np.std(data.ground_truth[:,5] - data.tcv[:,5]))
+    print('std gps error: ' , np.std(euc_dis(data.ground_truth[:,0:3], data.gps)))
+    print('std barom error: ' , np.std(data.ground_truth[:,2] - data.barometer))
+    print('std imu error: ' , np.std(euc_dis(data.ground_truth, data.imu)))
+    print('std imu yaw error: ' , np.std(data.ground_truth[:,5] - data.imu[:,5]))
 
 
 

@@ -282,11 +282,11 @@ def reset_imu_values(data):
     global imu_integrated
     imu_integrated = x_est
 
-def update_yaw(data):
-    global x_est
-    innov = hlp.angleFromTo(data.angular.z - x_est[5], -180,180)
-    x_est[5] = x_est[5] + 0.05*(innov)
-    x_est[5] = hlp.angleFromTo(x_est[5], -180,180)
+# def update_yaw(data):
+#     global x_est
+#     innov = hlp.angleFromTo(data.angular.z - x_est[5], -180,180)
+#     x_est[5] = x_est[5] + 0.05*(innov)
+#     x_est[5] = hlp.angleFromTo(x_est[5], -180,180)
 
 def navdata_callback(data):
     """
@@ -329,7 +329,7 @@ def navdata_callback(data):
 
     """ Reading yaw and time data. """
     try:
-        delta_yaw = data.rotZ - prev_imu_yaw
+        delta_yaw = (data.rotZ - 90) - prev_imu_yaw + 0.03*(data.rotZ - 90 - x_est[5])
         delta_yaw = hlp.angleFromTo(delta_yaw, -180,180)
         now = datetime.now()
         delta_t = (now - prev_navdata_timestamp).total_seconds()
@@ -339,7 +339,7 @@ def navdata_callback(data):
         delta_t = 0
         prev_navdata_timestamp = datetime.now()
     finally:
-        prev_imu_yaw = data.rotZ
+        prev_imu_yaw = (data.rotZ - 90)
 
     """ Reading IMU accelerations. """
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
@@ -407,7 +407,7 @@ def main():
     rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
     rospy.Subscriber('/ardrone/takeoff', Empty, takeoff_callback)
     rospy.Subscriber('/start_data_collection', Empty, reset_imu_values)
-    rospy.Subscriber('/drone_ground_truth', Twist, update_yaw)
+    # rospy.Subscriber('/drone_ground_truth', Twist, update_yaw)
 
     filtered_estimate_pub = rospy.Publisher('/filtered_estimate', Twist, queue_size=10)
     filtered_vel_pub = rospy.Publisher('/filtered_estimate_vel', Twist, queue_size=10)
@@ -423,7 +423,7 @@ def main():
     while not rospy.is_shutdown():
         if not cfg.do_calibration_before_start or calib_steps >= cfg.num_calib_steps:
             x = [round(i,5) for i in x_est]
-            x[5] += 1.0 #some offset in estimates
+            # x[5] += 1.0 #some offset in estimates
             msg = hlp.to_Twist(x)
             v = [round(i,5) for i in v_est] + [0,0,0]
             vel_msg = hlp.to_Twist(v)

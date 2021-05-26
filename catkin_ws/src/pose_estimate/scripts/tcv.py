@@ -9,6 +9,7 @@ import rospy
 from std_msgs.msg import Empty, Int8
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
+from ardrone_autonomy.msg import Navdata
 
 import numpy as np
 import math
@@ -53,6 +54,11 @@ global_image = None
 #################
 # ROS functions #
 #################
+
+def deg2rad(deg):
+    return math.pi*deg / 180.0
+
+    
 def image_callback(data):
     global global_image
 
@@ -67,6 +73,15 @@ def gt_callback(data):
     global global_ground_truth
     global_ground_truth = np.array([data.linear.x, data.linear.y, data.linear.z, 0, 0, data.angular.z])
 
+
+
+qc_pitch = None
+qc_roll = None
+def navdata_callback(data):
+    global qc_pitch
+    global qc_roll
+    qc_roll = deg2rad(data.rotX)
+    qc_pitch = deg2rad(data.rotY)
 
 ##################
 # Help functions #
@@ -658,7 +673,15 @@ def calculate_position(center_px, radius_px):
 
     est_z += camera_offset_z # mm adjustment for translated camera frame in z direction
 
-    position = np.array([est_x, est_y, est_z]) / 1000.0
+
+    cr, cp = math.cos(qc_roll), math.cos(qc_pitch)
+    sr, sp = math.sin(qc_roll), math.sin(qc_pitch)
+
+    x = est_x + est_z*sp*(0.5 if not cfg.is_simulator else 1)
+    y = est_y - est_z*sr*(0.7 if not cfg.is_simulator else 1)
+    z = est_z * cr * cp
+    z = est_z
+    position = np.array([x, y, z]) / 1000.0
 
     return position
 
@@ -1223,6 +1246,7 @@ def main():
     rospy.Subscriber('/ardrone/bottom/image_raw', Image, image_callback)
     # rospy.Subscriber('/ground_truth/state', Odometry, gt_callback)
     rospy.Subscriber('/drone_ground_truth', Twist, gt_callback)
+    rospy.Subscriber('/ardrone/navdata', Navdata, navdata_callback)
 
     pub_processed_image = rospy.Publisher('/processed_image', Image, queue_size=10)
 
