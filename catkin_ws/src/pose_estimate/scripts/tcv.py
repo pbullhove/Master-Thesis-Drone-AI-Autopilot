@@ -1137,7 +1137,7 @@ def get_estimate(hsv, count, current_ground_truth):
             method_of_choice = 0
             est_x, est_y, est_z, est_angle = 0.0, 0.0, 0.0, 0.0
     else:
-        if arrow_available: # don't use corners with real QC. Doesn't work. 
+        if arrow_available: # don't use corners with real QC. Doesn't work.
             method_of_choice = 2
             est_angle = 0.0
             est_x, est_y, est_z = est_arrow_x, est_arrow_y, est_arrow_z
@@ -1290,6 +1290,7 @@ def main():
 
     count = 0
     rate = rospy.Rate(10) # Hz
+    prev_est = np.zeros(6)
     while not rospy.is_shutdown():
 
         current_ground_truth = global_ground_truth # Fetch the latest ground truth pose available
@@ -1302,13 +1303,14 @@ def main():
 
             pub_est_method.publish(Int8(method))
 
-            if any(est):
+            if any(est) and not (est == prev_est).all():
                 # Publish the estimate
                 est_msg.linear.x = est[0]
                 est_msg.linear.y = est[1]
                 est_msg.linear.z = est[2]
-                est_msg.angular.z = est[5] if est[2] < 2 else 0
+                est_msg.angular.z = est[5] if est[2] < 2 else 0.0
                 pub_est.publish(est_msg)
+                prev_est = est
             count += 1
             if use_test_image:
                 break

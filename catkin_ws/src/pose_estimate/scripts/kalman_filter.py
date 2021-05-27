@@ -54,7 +54,7 @@ C_tcv = np.eye(6)
 C_gps = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
 C_baro = np.array([0,0,1,0,0,0]).reshape((1,6))
 
-R_dnnCV = (0.02**2)*np.eye(6) # 10hz
+R_dnnCV = (0.00002**2)*np.eye(6) # 10hz
 R_tcv = (0.01**2)*np.diag([1,1,1,1,1,1000]) # 10hz
 R_gps = (0.1**2)*np.eye(3) # 2 hz
 R_baro = (1**2)*np.eye(1) if not cfg.is_simulator else (0.01**2)*np.eye(1)# 200hz
@@ -62,6 +62,7 @@ R_baro = (1**2)*np.eye(1) if not cfg.is_simulator else (0.01**2)*np.eye(1)# 200h
 Q_imu = 0.01*np.diag([1, 1, 1, 0, 0, 1])
 Q_imu_vel = 0.01*np.diag([1, 1, 1])
 
+yaw_offset = -90 if cfg.is_simulator else 0.0
 
 calibration_vel = np.array([0.0, 0.0, 0.0])
 calibration_acc = np.array([0.0, 0.0, 0.0])
@@ -200,11 +201,14 @@ def dnnCV_estimate_callback(data):
     global y_prev_dnnCV
     global estimate_history_dnn
     global estimate_history_dnn_yaw
+    global yaw_offset
     dnnCV_estimate = hlp.twist_to_array(data)
     dnnCV_estimate[0:3], estimate_history_dnn = filter_estimate(dnnCV_estimate[0:3], estimate_history_dnn, median_filter_size, average_filter_size)
     if dnnCV_estimate[5] != 0.0:
         dnnCV_estimate[5], estimate_history_dnn_yaw = filter_estimate(dnnCV_estimate[5], estimate_history_dnn_yaw, median_filter_size, average_filter_size)
-    if x_est[2] > 0.7 or dnnCV_estimate[2] > 0.7:
+        # if prev_imu_yaw is not None:
+        #     yaw_offset = yaw_offset + 0.1*(dnnCV_estimate[5] - (prev_imu_yaw + yaw_offset))
+    if x_est[2] > 0.5 or dnnCV_estimate[2] > 0.5:
         if dnnCV_estimate[5] == 0.0: #if no estimate for yaw
             C = C_dnnCV[0:3,:]
             y = dnnCV_estimate[0:3]
@@ -236,7 +240,7 @@ def tcv_estimate_callback(data):
         tcv_estimate[5], estimate_history_tcv_yaw = filter_estimate(tcv_estimate[5], estimate_history_tcv_yaw, median_filter_size, average_filter_size)
 
     if x_est[2] > 0.4 or tcv_estimate[2] > 0.4:
-        if tcv_estimate[5] == 0.0 or tcv_estimate[5] == -0.0: #if no estimate for yaw
+        if tcv_estimate[5] == 0.0 or tcv_estimate[5] == -0.0 or cfg.is_simulator: #if no estimate for yaw
             C = C_dnnCV[0:3,:]
             y = tcv_estimate[0:3]
             R = R_tcv[0:3,0:3]
@@ -291,11 +295,6 @@ def reset_imu_values(data):
     global imu_integrated
     imu_integrated = x_est
 
-# def update_yaw(data):
-#     global x_est
-#     innov = hlp.angleFromTo(data.angular.z - x_est[5], -180,180)
-#     x_est[5] = x_est[5] + 0.05*(innov)
-#     x_est[5] = hlp.angleFromTo(x_est[5], -180,180)
 
 def navdata_callback(data):
     """
@@ -322,6 +321,7 @@ def navdata_callback(data):
     global calibration_pressure
     global calib_roll
     global calib_pitch
+    global yaw_offset
     global t_prev_range
     global y_prev_range
     global estimate_history_barom
@@ -333,13 +333,14 @@ def navdata_callback(data):
         calibration_pressure += data.pressure/float(cfg.num_calib_steps)
         calib_roll += data.rotX/float(cfg.num_calib_steps)
         calib_pitch += data.rotY/float(cfg.num_calib_steps)
+        yaw_offset -= data.rotZ/float(cfg.num_calib_steps)
         calib_steps += 1
         return
 
     """ Reading yaw and time data. """
     try:
-        offset = -90 if cfg.is_simulator else 0
-        delta_yaw = (data.rotZ + offset) - prev_imu_yaw + 0.03*(data.rotZ + offset - x_est[5])
+        k = 0.03*(data.rotZ + yaw_offset - x_est[5]) if not cfg.is_simulator else 0.0
+        delta_yaw = (data.rotZ + yaw_offset) - prev_imu_yaw + k
         delta_yaw = hlp.angleFromTo(delta_yaw, -180,180)
         now = datetime.now()
         delta_t = (now - prev_navdata_timestamp).total_seconds()
@@ -348,8 +349,7 @@ def navdata_callback(data):
         delta_yaw = 0
         delta_t = 0
         prev_navdata_timestamp = datetime.now()
-    finally:
-        prev_imu_yaw = (data.rotZ + offset)
+    prev_imu_yaw = (data.rotZ + yaw_offset)
 
     """ Reading IMU accelerations. """
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
@@ -365,11 +365,10 @@ def navdata_callback(data):
     """ Integrating acc to find v_est. """
     v_est *= 1-vel_decay
     v_est += delta_t*acc
-    # v_est = np.array([data.vx, data.vy, data.vz])/1000.0
-    # v_est = np.array([max(-cfg.vel_estimate_limit,i) for i in v_est])
-    # v_est = np.array([min(cfg.vel_estimate_limit,i) for i in v_est])
+    v_est = np.array([data.vx, data.vy, data.vz])/1000.0
+    v_est = np.array([max(-cfg.vel_estimate_limit,i) for i in v_est])
+    v_est = np.array([min(cfg.vel_estimate_limit,i) for i in v_est])
     delta_pos = delta_t*v_est if cfg.use_imu else np.zeros(3)
-    # delta_pos = np.zeros(3)
 
     """ Integrating IMU data for plotting and tuning"""
     imu_integrated[0:3] += delta_t*v_est
@@ -380,7 +379,7 @@ def navdata_callback(data):
     delta_x = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0, 0, delta_yaw])
     x_est = x_est + delta_x
     r = R.from_euler('z', -np.radians(delta_yaw))
-    x_est[0:3] = r.apply(x_est[0:3])
+    # x_est[0:3] = r.apply(x_est[0:3])
     P = P_apri(P, Q_imu)
     P_v = P_apri(P_v, Q_imu_vel)
     x_est[3] = data.rotX

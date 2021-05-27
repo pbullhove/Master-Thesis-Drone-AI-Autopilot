@@ -22,6 +22,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, Bool
 
 import time
+import config as cfg
 
 est_pose = None
 
@@ -38,6 +39,11 @@ global_mission = np.array([
     [0.0, 0.0, 1.0],
     [0.0, 0.0, 0.2]
 ])
+if not cfg.is_simulator:
+    global_mission = np.array([
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 0.8],
+    ])
 
 
 

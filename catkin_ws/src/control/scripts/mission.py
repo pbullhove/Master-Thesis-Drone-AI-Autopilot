@@ -155,7 +155,7 @@ def main():
     pub_start_automated_landing = rospy.Publisher('/initiate_automated_landing', Empty, queue_size=1)
     pub_save_front_camera_photo = rospy.Publisher('/take_still_photo_front',Empty, queue_size=1)
     control_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-    pid_off = rospy.Publisher('/pid_on_off', Bool, queue_size=1)
+    toggle_pid = rospy.Publisher('/pid_on_off', Bool, queue_size=1)
     rospy.Subscriber('/filtered_estimate', Twist, estimate_callback)
 
     rospy.Subscriber('/ardrone/land', Empty, landing_complete_callback)
@@ -194,6 +194,10 @@ def main():
             landing_complete = False
             pass
         elif state == "TAKEOFF":
+            if not cfg.is_simulator:
+                off = Bool()
+                off.data = False
+                toggle_pid.publish(off)
             start_pose = cp.deepcopy(current_pose)
             desired_pose = cp.deepcopy(takeoff_pose)
             timer.start(cfg.takeoff_timer_duration)
@@ -243,6 +247,10 @@ def main():
             if close_enough(current_pose, desired_pose):
                 timer.stop()
                 mission_step += 1
+                if not cfg.is_simulator:
+                    pid_on = Bool()
+                    pid_on.data = True
+                    toggle_pid.publish(pid_on)
                 transition_to(mission_plan[mission_step])
             elif timer.is_timeout() and close_enough(current_pose, start_pose):
                 timer.stop()
@@ -289,7 +297,7 @@ def main():
             off.data = False
             msg.linear.z = cfg.error_descent_vel
             while True:
-                pid_off.publish(off)
+                toggle_pid.publish(off)
                 control_pub.publish(msg)
 
 if __name__ == "__main__":

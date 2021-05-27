@@ -92,8 +92,8 @@ def transform_pixel_position_to_world_coordinates(center_px, radius_px):
     x = est_x + est_z*sp*(0.5 if not cfg.is_simulator else 1)
     y = est_y - est_z*sr*(0.7 if not cfg.is_simulator else 1)
     z = est_z * cr * cp
-    # x=est_x
-    # y = est_y
+    x = est_x
+    y = est_y
     z = est_z
 
     est = Twist()
