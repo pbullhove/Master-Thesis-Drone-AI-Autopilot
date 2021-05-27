@@ -7,11 +7,13 @@ import numpy as np
 import math
 
 # General
-is_simulator = True
+is_simulator = False
 do_calibration_before_start = not is_simulator
 num_calib_steps = 1000
 vel_estimate_limit = 0.7
 vel_innov_limit = 0.2
+discard_measurements = [1,1,2.2]
+use_imu = False
 
 # CV module
 save_images = False

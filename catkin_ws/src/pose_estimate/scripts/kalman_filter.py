@@ -57,7 +57,7 @@ C_baro = np.array([0,0,1,0,0,0]).reshape((1,6))
 R_dnnCV = (0.02**2)*np.eye(6) # 10hz
 R_tcv = (0.01**2)*np.diag([1,1,1,1,1,1000]) # 10hz
 R_gps = (0.1**2)*np.eye(3) # 2 hz
-R_baro = (0.3**2)*np.eye(1) # 200hz
+R_baro = (1**2)*np.eye(1) if not cfg.is_simulator else (0.01**2)*np.eye(1)# 200hz
 
 Q_imu = 0.01*np.diag([1, 1, 1, 0, 0, 1])
 Q_imu_vel = 0.01*np.diag([1, 1, 1])
@@ -87,10 +87,10 @@ t_prev_dnnCV = None
 
 imu_integrated = np.zeros(6)
 barometric_altitude = np.zeros(6)
-median_filter_size = 1
-average_filter_size = 1
-barom_median_filter_size = 5
-barom_average_filter_size = 5
+median_filter_size = 5
+average_filter_size = 5
+barom_median_filter_size = 200
+barom_average_filter_size = 200
 estimate_history_size = median_filter_size + average_filter_size - 1
 estimate_history_dnn = np.zeros((estimate_history_size,3))
 estimate_history_tcv = np.zeros((estimate_history_size,3))
@@ -146,14 +146,23 @@ def KF_update(R,C,y):
     global x_est
     global x_est_prev
     global v_est
-    # """ If measurement is more than 5m away from current estimate and is more than 5m of start: discard measurement"""
-    # try:
-    #     if ((np.absolute(y - np.dot(C,x_est)))[0:3] > np.array([5,5,5])).any() and (np.absolute(y)[0:3] > np.array([5,5,5])).any():
-    #         print('discard')
-    #         return
-    # except IndexError as e: # range updates
-    #     if (np.absolute(y - np.dot(C,x_est)) > 5) and (np.absolute(y) > 5):
-    #         return
+    """ If measurement is more than n-meters away from current estimate and is more than 5m of start: discard measurement"""
+    if not cfg.is_simulator:
+        try:
+            m = np.array(cfg.discard_measurements)
+            # if ((np.absolute(y - np.dot(C,x_est)))[0:3] > np.array([n,n,n])).any() and (np.absolute(y)[0:3] > np.array([m,m,m])).any():
+            #     print('discard')
+            #     return
+            if (np.absolute(y)[0:3] > np.array(m)).any():
+                print('discard')
+                return
+            try:
+                y[5] *= (180 - np.absolute(hlp.angleFromTo(np.absolute(y[5] - x_est[5]), -180, 180)))/180.0
+            except IndexError as e:
+                pass
+        except IndexError as e: # range updates
+            if (np.absolute(y) > m[2]):
+                return
 
     K = kalman_gain(P, C, R)
     innov = y-np.dot(C,x_est)
@@ -329,7 +338,8 @@ def navdata_callback(data):
 
     """ Reading yaw and time data. """
     try:
-        delta_yaw = (data.rotZ - 90) - prev_imu_yaw + 0.03*(data.rotZ - 90 - x_est[5])
+        offset = -90 if cfg.is_simulator else 0
+        delta_yaw = (data.rotZ + offset) - prev_imu_yaw + 0.03*(data.rotZ + offset - x_est[5])
         delta_yaw = hlp.angleFromTo(delta_yaw, -180,180)
         now = datetime.now()
         delta_t = (now - prev_navdata_timestamp).total_seconds()
@@ -339,7 +349,7 @@ def navdata_callback(data):
         delta_t = 0
         prev_navdata_timestamp = datetime.now()
     finally:
-        prev_imu_yaw = (data.rotZ - 90)
+        prev_imu_yaw = (data.rotZ + offset)
 
     """ Reading IMU accelerations. """
     acc = np.array([data.ax*ONE_g, data.ay*ONE_g, data.az*ONE_g]) - calibration_acc
@@ -358,7 +368,7 @@ def navdata_callback(data):
     # v_est = np.array([data.vx, data.vy, data.vz])/1000.0
     # v_est = np.array([max(-cfg.vel_estimate_limit,i) for i in v_est])
     # v_est = np.array([min(cfg.vel_estimate_limit,i) for i in v_est])
-    delta_pos = delta_t*v_est
+    delta_pos = delta_t*v_est if cfg.use_imu else np.zeros(3)
     # delta_pos = np.zeros(3)
 
     """ Integrating IMU data for plotting and tuning"""
@@ -381,8 +391,8 @@ def navdata_callback(data):
     if cfg.is_simulator:
         y = data.altd / 1000.0
     elif data.pressure > 0:
-        y = (calibration_pressure - data.pressure)/11.3
-    if y > 0.0 and data.altd < 2500.0:
+        y = (calibration_pressure - data.pressure)/(11.3 if cfg.is_simulator else 11.3)
+    if not cfg.is_simulator or data.altd < 2500.0:
         y, estimate_history_barom = filter_estimate(y, estimate_history_barom, barom_median_filter_size, barom_average_filter_size)
         KF_update(R_baro, C_baro, y)
         barometric_altitude[2] = y

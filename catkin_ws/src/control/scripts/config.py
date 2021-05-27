@@ -7,9 +7,9 @@ import numpy as np
 import math
 
 # General
-is_simulator = True
+is_simulator = False
 
-default_setpoint = np.array([2,2,5, 0, 0, -90])
+default_setpoint = np.array([0,0,1.75, 0, 0, 0])
 
 takeoff_height = 1.5
 
@@ -21,6 +21,9 @@ close_enough_ang = 5
 hover_duration = 5
 landing_timer_duration = 10
 takeoff_timer_duration = 3
+slice_on = not is_simulator
+slice_duration_move = 2
+slice_duration_stop = 2
 
 # ABORT MISSION PARAMETERS
 x_upper_limit = 15 if not is_simulator else 15000
@@ -29,12 +32,15 @@ z_upper_limit = 7 if not is_simulator else 15000
 error_timer_duration = 60 if not is_simulator else 500
 error_descent_vel = -0.4
 
+
+
+
 ####################
 #  PID parameters  #
 ####################
 
 actuation_saturation = 1 # % of maximum velocity
-error_integral_limit = 40
+error_integral_limit = 40 if is_simulator else 20
 
 
 if is_simulator:
@@ -58,7 +64,7 @@ if is_simulator:
 else:
     Kp_position_x = 0.10
     Ki_position_x = 0.0
-    Kd_position_x = 0.5
+    Kd_position_x = 0.00
     ####################
     Kp_position_y = Kp_position_x
     Ki_position_y = Ki_position_x

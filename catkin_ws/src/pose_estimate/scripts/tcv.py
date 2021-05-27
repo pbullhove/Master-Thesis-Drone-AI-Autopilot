@@ -58,7 +58,7 @@ global_image = None
 def deg2rad(deg):
     return math.pi*deg / 180.0
 
-    
+
 def image_callback(data):
     global global_image
 
@@ -1118,24 +1118,32 @@ def get_estimate(hsv, count, current_ground_truth):
         pub_est_error_corners.publish(msg)
 
     # Choose method #
-    if corners_available and green_toughing_edge:
-        method_of_choice = 3
-        est_x, est_y, est_z = est_corners_x, est_corners_y, est_corners_z
-        if arrow_available:
-            est_angle = est_arrow_angle
+    if cfg.is_simulator:
+        if corners_available and green_toughing_edge:
+            method_of_choice = 3
+            est_x, est_y, est_z = est_corners_x, est_corners_y, est_corners_z
+            if arrow_available:
+                est_angle = est_arrow_angle
+            else:
+                est_angle = 0.0
+        elif arrow_available:
+            method_of_choice = 2
+            est_x, est_y, est_z, est_angle = est_arrow_x, est_arrow_y, est_arrow_z, est_arrow_angle
+        elif ellipse_available:
+            method_of_choice = 1
+            est_x, est_y, est_z, est_angle = est_ellipse_x, est_ellipse_y, est_ellipse_z, est_ellipse_angle
         else:
-            est_angle = 0.0
-    elif arrow_available:
-        method_of_choice = 2
-        est_x, est_y, est_z, est_angle = est_arrow_x, est_arrow_y, est_arrow_z, est_arrow_angle
-    elif ellipse_available:
-        method_of_choice = 1
-        est_x, est_y, est_z, est_angle = est_ellipse_x, est_ellipse_y, est_ellipse_z, est_ellipse_angle
+            # method_of_choice = "none"
+            method_of_choice = 0
+            est_x, est_y, est_z, est_angle = 0.0, 0.0, 0.0, 0.0
     else:
-        # method_of_choice = "none"
-        method_of_choice = 0
-        est_x, est_y, est_z, est_angle = 0.0, 0.0, 0.0, 0.0
-
+        if arrow_available: # don't use corners with real QC. Doesn't work. 
+            method_of_choice = 2
+            est_angle = 0.0
+            est_x, est_y, est_z = est_arrow_x, est_arrow_y, est_arrow_z
+        else:
+            method_of_choice = 0
+            est_x, est_y, est_z, est_angle = 0.0, 0.0, 0.0, 0.0
     # hsv_save_image(global_hsv_canvas_all, "5_canvas_all_"+str(count))
     hsv_save_image(global_hsv_canvas_all, "5_canvas_all")
 

@@ -305,7 +305,7 @@ def body2world(pos, ang):
 
 def main():
     data = Data()
-    data.load_data('unnamed.npy')
+    data.load_data('real_indoor_4.npy')
     # data.set_point[0:55,0] = -2
     # data.set_point[0:55,1] = 2
     # data.set_point[0:55,2] = 5
@@ -313,11 +313,13 @@ def main():
     # est_plot_setpoint(data.time, data.ground_truth, data.filtered_estimate, data.set_point,"landing_est_gt_setpoint")
     data.ground_truth[:,0:2] = body2world(data.ground_truth[:,0:2], data.ground_truth[:,5])
     data.filtered_estimate[:,0:2] = body2world(data.filtered_estimate[:,0:2], data.filtered_estimate[:,5])
-    est_plot(data.time, data.ground_truth, data.filtered_estimate, "testplot")
+    est_plot_setpoint(data.time, data.dnnCV, data.filtered_estimate, data.tcv, "nad")
+    est_plot(data.time, data.ground_truth, data.dnnCV, "testplot")
+    est_plot(data.time, data.ground_truth, data.tcv, "testplot")
+    one_thing(data.time,data.barometer, "name")
     # error_plot(data.time, data.ground_truth - data.imu, "testplot")
-    # one_thing(data.time,euc_dis(data.filtered_estimate, data.ground_truth), "name")
 
-    plot_xyz(data.time, data.ground_truth, data.filtered_estimate, '3dplot')
+    # plot_xyz(data.time, data.ground_truth, data.filtered_estimate, '3dplot')
 
     print('rmse filtered: ' , rmse(euc_dis(data.ground_truth, data.filtered_estimate)))
     print('rmse filtered yaw: ' , rmse(data.ground_truth[:,5], data.filtered_estimate[:,5]))

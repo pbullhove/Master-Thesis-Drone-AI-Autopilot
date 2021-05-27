@@ -23,7 +23,7 @@ from std_msgs.msg import Empty, Bool
 from tf.transformations import euler_from_quaternion
 from nav_msgs.msg import Odometry
 from scipy.spatial.transform import Rotation as R
-
+from timer import Timer, TimerError
 import time
 import math
 
@@ -170,6 +170,31 @@ def controller(state):
     return actuation_clipped
 
 
+
+
+slice_timer = Timer()
+is_currently_stopping = False
+def movement_slicing():
+    global slice_timer
+    global is_currently_stopping
+    if not cfg.slice_on:
+        return False
+    try:
+        if slice_timer.is_timeout():
+            is_currently_stopping = not is_currently_stopping
+            slice_timer.stop()
+            duration = cfg.slice_duration_stop if is_currently_stopping else cfg.slice_duration_move
+            if is_currently_stopping:
+                duration = duration*2 if (np.linalg.norm(error_prev) < 0.35) else duration
+            print('actuation: ', is_currently_stopping)
+            slice_timer.start(duration)
+    except TimerError as e:
+        duration = cfg.slice_duration_stop if is_currently_stopping else cfg.slice_duration_move
+        slice_timer.start(duration)
+    return is_currently_stopping
+
+
+
 def main():
     global prev_time
     global bf_setpoint
@@ -208,7 +233,7 @@ def main():
             control_pub.publish(msg)
 
         elif (state is not None) and pid_on_off:
-            actuation = controller(state)
+            actuation = controller(state)if not movement_slicing() else [0,0,0,0,0,0]
             msg.linear.x = actuation[0]
             msg.linear.y = actuation[1]
             msg.linear.z = actuation[2]
