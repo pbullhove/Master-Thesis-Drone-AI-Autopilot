@@ -185,7 +185,7 @@ def movement_slicing():
             slice_timer.stop()
             duration = cfg.slice_duration_stop if is_currently_stopping else cfg.slice_duration_move
             if is_currently_stopping:
-                duration = duration*2 if (np.linalg.norm(error_prev) < 0.35) else duration
+                duration = duration*2 if (np.linalg.norm(error_prev) < 0.5) else duration
             print('actuation: ', is_currently_stopping)
             slice_timer.start(duration)
     except TimerError as e:

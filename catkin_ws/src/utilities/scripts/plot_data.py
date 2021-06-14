@@ -8,7 +8,7 @@ import time
 import math
 import sys
 import os
-
+from scipy.signal import savgol_filter
 
 
 class Data():
@@ -118,7 +118,7 @@ def error_plot(time, est, savename):
     legend_values = ['$\hat{x}$', '$\hat{y}$' ,'$\hat{z}$', '$\hat{\psi}$']
     # gt_lab = ['$x^{gt}$', '$y^{gt}$' ,'$z^{gt}$', '$\psi^{gt}$']
     subtitles = variables
-    fig = plt.figure(figsize=(12,8))
+    fig = plt.figure(figsize=(10,10))
     for i in range(4):
         k = i + 2 if i == 3 else i
         ax = plt.subplot(2,2,i+1)
@@ -152,7 +152,7 @@ def est_plot(time, gt, est, savename):
     legend_values = ['$\hat{x}$', '$\hat{y}$' ,'$\hat{z}$', '$\hat{\psi}$']
     gt_lab = ['$x^{gt}$', '$y^{gt}$' ,'$z^{gt}$', '$\psi^{gt}$']
     subtitles = variables
-    fig = plt.figure(figsize=(12,8))
+    fig = plt.figure(figsize=(8.4,5))
     for i in range(4):
         k = i + 2 if i == 3 else i
         ax = plt.subplot(2,2,i+1)
@@ -180,6 +180,7 @@ def est_plot(time, gt, est, savename):
         pass
 
 
+
 def est_plot_setpoint(time, gt, est, setpoint,savename):
     plt.rc('font', family='Serif', size=11)
     variables = ['$x$', '$y$', '$z$', '$\psi$']
@@ -188,7 +189,7 @@ def est_plot_setpoint(time, gt, est, setpoint,savename):
     gt_lab = ['$x^{gt}$', '$y^{gt}$' ,'$z^{gt}$', '$\psi^{gt}$']
     sp_lab = ['$x_r$', '$y_r$' ,'$z_r$', '$\psi_r$']
     subtitles = variables
-    fig = plt.figure(figsize=(12,8))
+    fig = plt.figure(figsize=(8.4,5))
     for i in range(4):
         k = i + 2 if i == 3 else i
         ax = plt.subplot(2,2,i+1)
@@ -208,7 +209,7 @@ def est_plot_setpoint(time, gt, est, setpoint,savename):
     plt.savefig(folder+savename+'.svg')
 
     fig.tight_layout()
-    # fig.show()
+    fig.show()
 
     try:
         plt.waitforbuttonpress(0)
@@ -219,13 +220,14 @@ def est_plot_setpoint(time, gt, est, setpoint,savename):
 
 
 def plot_xyz(time, gt, est, savename):
-    fig = plt.figure(figsize=(10,10))
+    fig = plt.figure(figsize=(8.4,8.4))
     plt.rc('font', family='Serif', size=11)
     ax = fig.add_subplot(111,projection='3d')
     # plt.title('Quadcopter mission trajectory')
     est, = plt.plot(est[:,0], est[:,1], est[:,2])
     gt, = plt.plot( gt[:,0], gt[:,1], gt[:,2])
     plt.legend([est, gt], ['Estimated position', 'Ground truth position'])
+    # plt.legend([est], ['Estimated position'])
 
     folder = './catkin_ws/src/utilities/data_storage/plots/'
     plt.savefig(folder+savename+'.svg')
@@ -240,14 +242,15 @@ def plot_xyz(time, gt, est, savename):
 
 def one_thing(time, est, savename):
     plt.rc('font', family='Serif', size=11)
-    variables = ['$e_{estimate}$', '$y$', '$z$', '$\psi$']
+    variables = ['$e_{tcv}$', '$y$', '$z$', '$\psi$']
 
     legend_values = ['$e_p$']
     subtitles = variables
-    fig = plt.figure(figsize=(12,8))
+    fig = plt.figure(figsize=(4,3))
     ax = plt.subplot(1,1,1)
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('[m]')
+    # ax.set_ylim([-0.4,0.4])
     ax.axhline(y=0, color='grey', linestyle='--')
     # ax.legend(legend_values[0])
     plt.grid()
@@ -302,28 +305,106 @@ def body2world(pos, ang):
     return new_pos
 
 
+def plot_real(time, tcv, dnn, barom, filtered, setpoint=None):
+    plt.rc('font', family='Serif', size=11)
+    variables = ['$x$', '$y$', '$z$']
+
+    tcv_lab = ['$\hat{x}_{tcv}$', '$\hat{y}_{tcv}$' ,'$\hat{z}_{tcv}$']
+    dnn_lab = ['$\hat{x}_{dnnCV}$', '$\hat{y}_{dnnCV}$' ,'$\hat{z}_{dnnCV}$']
+    filtered_lab = ['$\hat{x}$', '$\hat{y}$' ,'$\hat{z}$']
+    barom_lab = '$\hat{z}_{barom}$'
+    setpoint_lab = ['$x_r$', '$y_r$' ,'$z_r$']
+    subtitles = variables
+    fig = plt.figure(figsize=(8.4,8.4))
+    for i in range(3):
+        ax = plt.subplot(3,1,i+1)
+
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel(variables[i] + ' [m]')
+        ax.axhline(y=0, color='grey', linestyle='--')
+        plt.grid()
+        # plt.title(subtitles[i])
+        tcv_line, = ax.plot(time,tcv[:,i], color='r')
+        dnn_line, = ax.plot(time,dnn[:,i], color='g')
+        if setpoint is not None:
+            setpoint_line = ax.plot(time, setpoint[:,i], color='gray')
+            if i == 2:
+                barom_line, = ax.plot(time, barom, color='orange')
+                filtered_line, = ax.plot(time, filtered[:,i], color='b')
+                plt.legend([tcv_line, dnn_line, filtered_line, barom_line, setpoint_line],[tcv_lab[i],dnn_lab[i], filtered_lab[i], barom_lab, setpoint_lab[i]])
+            else:
+                filtered_line, = ax.plot(time, filtered[:,i], color='b')
+                plt.legend([tcv_line, dnn_line, filtered_line, setpoint_line],[tcv_lab[i],dnn_lab[i], filtered_lab[i], setpoint_lab[i]])
+        else:
+            if i == 2:
+                barom_line, = ax.plot(time, barom, color='orange')
+                filtered_line, = ax.plot(time, filtered[:,i], color='b')
+                plt.legend([tcv_line, dnn_line, filtered_line, barom_line],[tcv_lab[i],dnn_lab[i], filtered_lab[i], barom_lab])
+            else:
+                filtered_line, = ax.plot(time, filtered[:,i], color='b')
+                plt.legend([tcv_line, dnn_line, filtered_line],[tcv_lab[i],dnn_lab[i], filtered_lab[i]])
+
+
+    fig.tight_layout()
+    fig.show()
+
+    try:
+        plt.waitforbuttonpress(0)
+        plt.close()
+    except Exception as e:
+        pass
+
+def remove_dups(series):
+    prevprev = series[0,:]
+    prev = series[1,:]
+    for i in range(series.shape[0]):
+        if i < 2:
+            continue
+        dup = (series[i,:] == prev).all() and (series[i,:] == prevprev).all()
+        prevprev = np.copy(prev)
+        prev = np.copy(series[i,:])
+        if dup:
+            series[i,:] = None
+    return series
 
 def main():
     data = Data()
-    data.load_data('real_landing_1.npy')
-    # data.set_point[0:55,0] = -2
+    data.load_data('sim_hover.npy')
+    # print(data.ground_truth)
+    # data.set_point[0:55,0] = 2
     # data.set_point[0:55,1] = 2
     # data.set_point[0:55,2] = 5
     # data.set_point[0:55,5] = -90
-    # est_plot_setpoint(data.time, data.ground_truth, data.filtered_estimate, data.set_point,"landing_est_gt_setpoint")
-    # print(data.tcv)
-    for i, el in enumerate(data.dnnCV[:,5]):
-        for j in range(6):
-            data.dnnCV[i,j] = None if data.dnnCV[i,j] == 0.0 else data.dnnCV[i,j]
-            data.tcv[i,j] = None if data.tcv[i,j] == 0 else data.tcv[i,j]
 
-    # data.ground_truth[:,0:2] = body2world(data.ground_truth[:,0:2], data.ground_truth[:,5])
-    # data.filtered_estimate[:,0:2] = body2world(data.filtered_estimate[:,0:2], data.filtered_estimate[:,5])
-    est_plot_setpoint(data.time, data.dnnCV, data.filtered_estimate, data.tcv, "nad")
-    est_plot(data.time, data.ground_truth, data.dnnCV, "testplot")
-    est_plot(data.time, data.ground_truth, data.tcv, "testplot")
-    one_thing(data.time,data.barometer, "name")
-    # error_plot(data.time, data.ground_truth - data.imu, "testplot")
+
+    # print(data.dnnCV)
+
+    # data.dnnCV = remove_dups(data.dnnCV)
+    # data.tcv = remove_dups(data.tcv)
+
+    data.ground_truth[:,0:2] = body2world(data.ground_truth[:,0:2], data.ground_truth[:,5])
+    data.filtered_estimate[:,0:2] = body2world(data.filtered_estimate[:,0:2], data.filtered_estimate[:,5])
+
+
+    for i in range(0,6):
+        data.filtered_estimate[:,i] = savgol_filter(data.filtered_estimate[:,i], 13, 3)
+
+    # m = 450
+    # data.time = data.time[:m]
+    # data.dnnCV = data.dnnCV[:m,:]
+    # data.tcv = data.tcv[:m,:]
+    # data.barometer = data.barometer[:m]
+    # data.filtered_estimate = data.filtered_estimate[:m,:]
+    # data.ground_truth = data.ground_truth[:m,:]
+    # plot_real(data.time, data.tcv, data.dnnCV, data.barometer, data.filtered_estimate)
+    # plot_xyz(data.time, data.ground_truth,data.filtered_estimate, "nad")
+
+    # est_plot_setpoint(data.time, data.ground_truth, data.filtered_estimate, data.set_point,"landing_est_gt_setpoint")
+    # est_plot_setpoint(data.time, data.dnnCV, data.filtered_estimate, data.tcv, "nad")
+    # est_plot(data.time, data.ground_truth, data.filtered_estimate, "testplot")
+    # est_plot(data.time, data.ground_truth, data.tcv, "testplot")
+    one_thing(data.time,euc_dis(data.ground_truth, data.tcv), "name")
+    # error_plot(data.time, data.ground_truth - data.filtered_estimate, "testplot")
 
     # plot_xyz(data.time, data.ground_truth, data.filtered_estimate, '3dplot')
 
@@ -338,55 +419,30 @@ def main():
     print('rmse imu: ' , rmse(euc_dis(data.ground_truth, data.imu)))
     print('rmse imu yaw: ' , rmse(data.ground_truth[:,5], data.imu[:,5]))
     print('----')
-    print('mean filtered error: ' , np.mean(euc_dis(data.ground_truth, data.filtered_estimate)))
-    print('mean filtered yaw error: ' , np.mean(data.ground_truth[:,5] - data.filtered_estimate[:,5]))
-    print('mean dnncv error: ' , np.mean(euc_dis(data.ground_truth, data.dnnCV)))
-    print('mean dnncv yaw error: ' , np.mean(data.ground_truth[:,5] -  data.dnnCV[:,5]))
-    print('mean tcv error: ' , np.mean(euc_dis(data.ground_truth, data.tcv)))
-    print('mean tcv yaw error: ' , np.mean(data.ground_truth[:,5] - data.tcv[:,5]))
-    print('mean gps error: ' , np.mean(euc_dis(data.ground_truth[:,0:3], data.gps)))
-    print('mean barom error: ' , np.mean(data.ground_truth[:,2] - data.barometer))
-    print('mean imu error: ' , np.mean(euc_dis(data.ground_truth, data.imu)))
-    print('mean imu yaw error: ' , np.mean(data.ground_truth[:,5] - data.imu[:,5]))
+
+    print('mean filtered: ' , -np.mean(data.ground_truth[:,0:3] - data.filtered_estimate[:,0:3]))
+    print('mean filtered yaw: ' , -np.mean(data.ground_truth[:,5] - data.filtered_estimate[:,5]))
+    print('mean dnncv: ' ,- np.mean(data.ground_truth[:,0:3] - data.dnnCV[:,0:3]))
+    print('mean dnncv yaw: ' ,- np.mean(data.ground_truth[:,5] -  data.dnnCV[:,5]))
+    print('mean tcv: ' , -np.mean(data.ground_truth[:,0:3] - data.tcv[:,0:3]))
+    print('mean tcv yaw: ' ,-np.mean(data.ground_truth[:,5] - data.tcv[:,5]))
+    print('mean gps: ' , -np.mean(data.ground_truth[:,0:3] - data.gps))
+    print('mean barom: ' ,-np.mean(data.ground_truth[:,2] - data.barometer))
+    print('mean imu: ' , -np.mean(data.ground_truth[:,0:3] - data.imu[:,0:3]))
+    print('mean imu yaw: ' , -np.mean(data.ground_truth[:,5] - data.imu[:,5]))
     print('----')
-    print('std filtered error: ' , np.std(euc_dis(data.ground_truth, data.filtered_estimate)))
-    print('std filtered yaw error: ' , np.std(data.ground_truth[:,5]- data.filtered_estimate[:,5]))
-    print('std dnncv error: ' , np.std(euc_dis(data.ground_truth, data.dnnCV)))
-    print('std dnncv yaw error: ' , np.std(data.ground_truth[:,5] -  data.dnnCV[:,5]))
-    print('std tcv error: ' , np.std(euc_dis(data.ground_truth[:,0:3], data.tcv)))
-    print('std tcv yaw error: ' , np.std(data.ground_truth[:,5] - data.tcv[:,5]))
-    print('std gps error: ' , np.std(euc_dis(data.ground_truth[:,0:3], data.gps)))
-    print('std barom error: ' , np.std(data.ground_truth[:,2] - data.barometer))
-    print('std imu error: ' , np.std(euc_dis(data.ground_truth, data.imu)))
-    print('std imu yaw error: ' , np.std(data.ground_truth[:,5] - data.imu[:,5]))
+    print('std filtered: ' , np.std(data.ground_truth[:,0:3] - data.filtered_estimate[:,0:3]))
+    print('std filtered yaw: ' , np.std(data.ground_truth[:,5] - data.filtered_estimate[:,5]))
+    print('std dnncv: ' , np.std(data.ground_truth[:,0:3] - data.dnnCV[:,0:3]))
+    print('std dnncv yaw: ' , np.std(data.ground_truth[:,5] -  data.dnnCV[:,5]))
+    print('std tcv: ' , np.std(data.ground_truth[:,0:3] - data.tcv[:,0:3]))
+    print('std tcv yaw: ' , np.std(data.ground_truth[:,5] - data.tcv[:,5]))
+    print('std gps: ' , np.std(data.ground_truth[:,0:3] - data.gps[:,0:3]))
+    print('std barom: ' , np.std(data.ground_truth[:,2] - data.barometer))
+    print('std imu: ' , np.std(data.ground_truth[:,0:3] -  data.imu[:,0:3]))
+    print('std imu yaw: ' , np.std(data.ground_truth[:,5] - data.imu[:,5]))
 
 
-
-
-    # est_plot(data.time, data.ground_truth, data.imu, "testplot")
-
-    # for file in os.listdir("./catkin_ws/src/uav_vision/data_storage"):
-    #     try:
-    #         loadname = file
-    #         savename = loadname.split('.')[0]
-    #         time, gt, yolo, tcv, yolo_error, filtered = load_data(loadname)
-    #     except Exception as e:
-    #         continue
-    #
-    #     if savename.split('_')[-1] == 'comb':
-    #         est_plot_comb(time, gt, yolo, tcv, savename + "_var_plot")
-    #         est_plot(time, gt, filtered, savename + "_filtered_var_plot")
-    #         est_plot_comb_filtered(time, gt, yolo, tcv, filtered, savename + "_comb_plot")
-    #     elif savename.split('_')[-1] == 'yolo':
-    #         est_plot(time, gt, filtered, savename +"_filtered_plot")
-    #     elif savename.split('_')[-1] == 'tcv':
-    #         est_plot(time, gt, filtered, savename + "_var_plot")
-    #     else:
-    #         est_plot_comb(time, gt, yolo, tcv, savename + "_var_plot")
-    #         est_plot(time, gt, filtered, savename + "_filtered_var_plot")
-    #     if savename.split('_')[0] in ['landing','land']:
-    #         plot_xy(time, gt, filtered, savename+"_xy_plot")
-    #         plot_xyz(time, gt, filtered, savename+"_xyz_plot")
 
 
 if __name__ == '__main__':
